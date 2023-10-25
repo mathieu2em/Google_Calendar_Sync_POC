@@ -9,14 +9,14 @@ const OAuth2 = google.auth.OAuth2;
 
 // Use express-session for handling sessions
 app.use(session({
-    secret: 'your_secret',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
 }));
 
 const oauth2Client = new OAuth2(
-    'YOUR_CLIENT_ID',
-    'YOUR_CLIENT_SECRET',
+    process.env.CLIENT_ID,
+    process.env.CLIENT_SECRET,
     'http://localhost:3000/auth/callback'
 );
 
