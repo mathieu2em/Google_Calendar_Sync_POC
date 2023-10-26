@@ -16,6 +16,7 @@ env_vars = {key: web_data[key] for key in ['client_id', 'project_id', 'client_se
 # Write the environment variables to a .env file inside the 'vars' folder
 with open('vars/.env', 'w') as env_file:
     for key, value in env_vars.items():
-        env_file.write(f"{key}={value}\n")
+        env_file.write(f"{key.upper()}={value}\n")
+    env_file.write("SESSION_SECRET=123456")
 
 print("'vars/.env' file created successfully!")

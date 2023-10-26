@@ -2,6 +2,7 @@ require('dotenv').config({path: './vars/.env'});
 const express = require('express');
 const {google} = require('googleapis');
 const session = require('express-session');
+const path = require('path');
 
 const app = express();
 const PORT = 3000;
@@ -23,9 +24,9 @@ const oauth2Client = new OAuth2(
 // Setup the Google Calendar API
 const calendar = google.calendar({version: 'v3', auth: oauth2Client});
 
-app.get('/', (req, res) => {
+app.get('/api/', (req, res) => {
     if (!req.session.tokens) {
-        return res.redirect('/auth');
+        return res.redirect('/api/auth');
     }
     oauth2Client.setCredentials(req.session.tokens);
     calendar.events.list({
@@ -36,7 +37,7 @@ app.get('/', (req, res) => {
     });
 });
 
-app.get('/auth', (req, res) => {
+app.get('/api/auth', (req, res) => {
     const url = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: 'https://www.googleapis.com/auth/calendar.events'
@@ -51,8 +52,8 @@ app.get('/auth/callback', (req, res) => {
             console.error('Error authenticating', err);
             return res.status(500).send(err);
         }
-        req.session.tokens = tokens;
-        res.redirect('/');
+        // Redirect to the CalendarPage in frontend with token as a parameter
+        res.redirect(`http://localhost:5173/calendar?token=${tokens.access_token}`);
     });
 });
 
