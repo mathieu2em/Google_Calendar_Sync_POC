@@ -67,3 +67,14 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.calendar-box {
+  border: 1px solid #ddd;
+  margin: 10px 0;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.calendar-box h3 {
+  margin: 0;
+}
