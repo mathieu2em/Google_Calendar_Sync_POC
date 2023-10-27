@@ -9,6 +9,7 @@
 // THIS CODE DOEST NOT RESPECT GOOD PRACTICES AND IS CODED AS FAST AS POSSIBLE WITHOUT ANY CONCERN FOR ANYTHING OTHER THAN FUNCTIONALITY
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import CalendarPage from "./CalendarPage";
+import EventPage from "./EventPage";
 
 const App: React.FC = () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -19,13 +20,21 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/calendar" element={<CalendarPage token={token} />} />
         <Route
+          path="/calendar/:calendarId/event/:eventId/edit"
+          element={<EventPage token={token} />}
+        />
+        <Route
+          path="/calendar/:calendarId/event/create"
+          element={<EventPage token={token} />}
+        />
+        <Route
           path="/"
           element={
-            <body className="App">
+            <div className="App">
               <button onClick={() => (window.location.href = "/api/auth")}>
                 Connect to Google Calendar
               </button>
-            </body>
+            </div>
           }
         />
       </Routes>

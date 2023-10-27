@@ -78,3 +78,18 @@ button:focus-visible {
 .calendar-box h3 {
   margin: 0;
 }
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.delete-btn {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  padding: 0;
+  margin: 0;
+}
