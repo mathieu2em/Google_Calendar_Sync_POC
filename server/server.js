@@ -156,6 +156,7 @@ app.post('/api/createEvent/:calendarId', (req, res) => {
             dateTime: req.body.end.dateTime + ':00', // Add seconds to the dateTime
             timeZone: 'America/New_York',
         },
+        recurrence: req.body.recurrence ? req.body.recurrence : undefined,
     };
 
     console.log(eventDetails);
