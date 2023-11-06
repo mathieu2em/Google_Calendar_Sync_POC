@@ -171,6 +171,8 @@ app.post('/api/createEvent/:calendarId', (req, res) => {
         res.send(response.data);
     });
 });
+
+// Endpoint to edit a specific event from a calendar
 app.put('/api/editEvent/:calendarId/:eventId', (req, res) => {
     if (!req.session.tokens && !req.headers.authorization) {
         return res.status(401).send("Unauthorized");
@@ -179,27 +181,37 @@ app.put('/api/editEvent/:calendarId/:eventId', (req, res) => {
     const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
     oauth2Client.setCredentials({ access_token: token });
 
+    // Ensure dateTime is in the correct format, including seconds
+    const formatDateTime = (date) => date && `${date}:00`;
+
     const eventDetails = {
-        summary: req.body.summary || "", // Use req.body.summary for the summary field
-        description: req.body.description || "", // Use req.body.description for the description field
-        location: req.body.location || "", // Use req.body.location for the location field
+        summary: req.body.summary || "No Title", // Provide a default title if none is given
+        description: req.body.description || "",
+        location: req.body.location || "",
         start: {
-            dateTime: req.body.start.dateTime || "", // Use req.body.start.dateTime for the start.dateTime field
+            dateTime: formatDateTime(req.body.start.dateTime),
             timeZone: 'America/New_York',
         },
         end: {
-            dateTime: req.body.end.dateTime || "", // Use req.body.end.dateTime for the end.dateTime field
+            dateTime: formatDateTime(req.body.end.dateTime),
             timeZone: 'America/New_York',
         },
+        // Update with a new array for recurrence only if provided
         recurrence: req.body.recurrence ? [req.body.recurrence] : undefined,
     };
-    
+
+    // Logging the event details for debugging purposes
+    console.log(eventDetails);
+
     calendar.events.update({
         calendarId: req.params.calendarId,
         eventId: req.params.eventId,
         requestBody: eventDetails
     }, (err, response) => {
-        if (err) return res.status(500).send(err);
+        if (err) {
+            console.error('Error updating event: ', err);
+            return res.status(500).send(err);
+        }
         res.send(response.data);
     });
 });
