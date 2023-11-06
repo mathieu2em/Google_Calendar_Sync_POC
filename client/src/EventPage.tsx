@@ -66,8 +66,12 @@ const EventPage: React.FC<Props> = ({ token }) => {
           summary: eventName,
           description: description,
           location: location,
-          start: { dateTime: startTime },
-          end: { dateTime: endTime },
+          start: {
+            dateTime: new Date(startTime).toISOString().substring(0, 18) + "Z",
+          },
+          end: {
+            dateTime: new Date(endTime).toISOString().substring(0, 18) + "Z",
+          },
           recurrence: recurrence ? [recurrence] : undefined,
         }),
       });
@@ -90,6 +94,42 @@ const EventPage: React.FC<Props> = ({ token }) => {
         .then((response) => response.json())
         .then((data) => {
           setEventData(data);
+
+          // Update the recurrence-related state based on event data
+          if (data.recurrence && data.recurrence.length > 0) {
+            const rrule = data.recurrence[0];
+            const rruleParts = rrule.split(";");
+            const frequencyPart = rruleParts.find((part: any) =>
+              part.startsWith("RRULE:FREQ=")
+            );
+            const intervalPart = rruleParts.find((part: any) =>
+              part.startsWith("INTERVAL=")
+            );
+            const countPart = rruleParts.find((part: any) =>
+              part.startsWith("COUNT=")
+            );
+            const untilPart = rruleParts.find((part: any) =>
+              part.startsWith("UNTIL=")
+            );
+
+            if (frequencyPart) {
+              setFrequency(frequencyPart.split("=")[1]);
+            }
+
+            if (intervalPart) {
+              setInterval(Number(intervalPart.split("=")[1]));
+            }
+
+            if (countPart) {
+              setEndType("count");
+              setEndAfter(Number(countPart.split("=")[1]));
+            }
+
+            if (untilPart) {
+              setEndType("date");
+              setEndDate(new Date(untilPart.split("=")[1]));
+            }
+          }
         })
         .catch((error) => {
           console.error("There was an error fetching the event data", error);
@@ -99,11 +139,41 @@ const EventPage: React.FC<Props> = ({ token }) => {
 
   useEffect(() => {
     if (eventData) {
+      console.log(eventData);
+      console.log(eventData.start.dateTime);
       setEventName(eventData.summary);
       setDescription(eventData.description || "");
       setLocation(eventData.location || "");
-      setStartTime(eventData.start.dateTime || "");
-      setEndTime(eventData.end.dateTime || "");
+
+      const startDateTime = new Date(eventData.start.dateTime);
+      const endDateTime = new Date(eventData.end.dateTime);
+
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZone: eventData.start.timeZone,
+        hour12: false, // Use 24-hour format
+      });
+      // Extract formatted strings
+      const startFormatted = formatter.format(startDateTime);
+      const endFormatted = formatter.format(endDateTime);
+
+      let startIsoLikeStringWithSeconds = startFormatted.replace(
+        /(\d{2})\/(\d{2})\/(\d{4}), (\d{2}:\d{2}:\d{2})/,
+        "$3-$1-$2T$4"
+      );
+
+      let endIsoLikeStringWithSeconds = endFormatted.replace(
+        /(\d{2})\/(\d{2})\/(\d{4}), (\d{2}:\d{2}:\d{2})/,
+        "$3-$1-$2T$4"
+      );
+
+      setStartTime(startIsoLikeStringWithSeconds);
+      setEndTime(endIsoLikeStringWithSeconds);
       setRecurrence(eventData.recurrence ? eventData.recurrence[0] : ""); // Assuming a single recurrence rule
     }
   }, [eventData]);
@@ -173,6 +243,7 @@ const EventPage: React.FC<Props> = ({ token }) => {
           type="datetime-local"
           value={startTime}
           onChange={(e) => setStartTime(e.target.value)}
+          step="1"
           placeholder="Start Time"
         />
       </label>
@@ -183,6 +254,7 @@ const EventPage: React.FC<Props> = ({ token }) => {
           type="datetime-local"
           value={endTime}
           onChange={(e) => setEndTime(e.target.value)}
+          step="1"
           placeholder="End Time"
         />
       </label>

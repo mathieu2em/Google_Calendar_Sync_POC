@@ -1,3 +1,4 @@
 /vars
 /node_modules
 credentials.json
+service-account-credentials.json

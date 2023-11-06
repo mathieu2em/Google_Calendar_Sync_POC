@@ -149,11 +149,11 @@ app.post('/api/createEvent/:calendarId', (req, res) => {
         description: req.body.description,
         location: req.body.location,
         start: {
-            dateTime: req.body.start.dateTime + ':00', // Add seconds to the dateTime
+            dateTime: req.body.start.dateTime ,
             timeZone: 'America/New_York',
         },
         end: {
-            dateTime: req.body.end.dateTime + ':00', // Add seconds to the dateTime
+            dateTime: req.body.end.dateTime ,
             timeZone: 'America/New_York',
         },
         recurrence: req.body.recurrence ? req.body.recurrence : undefined,
@@ -182,19 +182,16 @@ app.put('/api/editEvent/:calendarId/:eventId', (req, res) => {
     const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
     oauth2Client.setCredentials({ access_token: token });
 
-    // Ensure dateTime is in the correct format, including seconds
-    const formatDateTime = (date) => date && `${date}:00`;
-
     const eventDetails = {
         summary: req.body.summary || "No Title", // Provide a default title if none is given
         description: req.body.description || "",
         location: req.body.location || "",
         start: {
-            dateTime: formatDateTime(req.body.start.dateTime),
+            dateTime: req.body.start.dateTime,
             timeZone: 'America/New_York',
         },
         end: {
-            dateTime: formatDateTime(req.body.end.dateTime),
+            dateTime: req.body.end.dateTime,
             timeZone: 'America/New_York',
         },
         // Update with a new array for recurrence only if provided
