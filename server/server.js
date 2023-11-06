@@ -131,6 +131,7 @@ app.get('/api/events/:calendarId', (req, res) => {
 
 // Endpoint to create a new event in a specific calendar
 app.post('/api/createEvent/:calendarId', (req, res) => {
+    console.log(req.body);
     if (!req.session.tokens && !req.headers.authorization) {
         return res.status(401).send("Unauthorized");
     }
@@ -138,30 +139,38 @@ app.post('/api/createEvent/:calendarId', (req, res) => {
     const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
     oauth2Client.setCredentials({ access_token: token });
 
+    // Make sure you're passing the summary in the request body
+    if (!req.body.summary) {
+        return res.status(400).send("Bad Request: Missing 'summary' in the event details.");
+    }
+
     const eventDetails = {
-        summary: req.body.eventName,
+        summary: req.body.summary,
         description: req.body.description,
         location: req.body.location,
         start: {
-            dateTime: req.body.startTime,
-            timeZone: 'EST', 
+            dateTime: req.body.start.dateTime + ':00', // Add seconds to the dateTime
+            timeZone: 'America/New_York',
         },
         end: {
-            dateTime: req.body.endTime,
-            timeZone: 'EST', 
+            dateTime: req.body.end.dateTime + ':00', // Add seconds to the dateTime
+            timeZone: 'America/New_York',
         },
-        recurrence: req.body.recurrence ? [req.body.recurrence] : undefined,
     };
+
+    console.log(eventDetails);
 
     calendar.events.insert({
         calendarId: req.params.calendarId,
         requestBody: eventDetails
     }, (err, response) => {
-        if (err) return res.status(500).send(err);
+        if (err) {
+            console.error('The API returned an error: ' + err);
+            return res.status(500).send(err);
+        }
         res.send(response.data);
     });
 });
-
 app.put('/api/editEvent/:calendarId/:eventId', (req, res) => {
     if (!req.session.tokens && !req.headers.authorization) {
         return res.status(401).send("Unauthorized");
@@ -176,11 +185,11 @@ app.put('/api/editEvent/:calendarId/:eventId', (req, res) => {
         location: req.body.location || "", // Use req.body.location for the location field
         start: {
             dateTime: req.body.start.dateTime || "", // Use req.body.start.dateTime for the start.dateTime field
-            timeZone: 'EST',
+            timeZone: 'America/New_York',
         },
         end: {
             dateTime: req.body.end.dateTime || "", // Use req.body.end.dateTime for the end.dateTime field
-            timeZone: 'EST',
+            timeZone: 'America/New_York',
         },
         recurrence: req.body.recurrence ? [req.body.recurrence] : undefined,
     };

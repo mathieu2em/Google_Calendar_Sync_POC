@@ -25,6 +25,10 @@ const EventPage: React.FC<Props> = ({ token }) => {
   const [endAfter, setEndAfter] = useState<number>(1);
   const [endDate, setEndDate] = useState<Date | null>(null);
 
+  /**
+   * To create en event in google calendar we need the calendarId
+   * @param calendarId The Id of the calendar in which to create an event.
+   */
   const createEvent = async (calendarId: string) => {
     try {
       const response = await fetch(`/api/createEvent/${calendarId}`, {
