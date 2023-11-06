@@ -197,7 +197,7 @@ app.put('/api/editEvent/:calendarId/:eventId', (req, res) => {
             timeZone: 'America/New_York',
         },
         // Update with a new array for recurrence only if provided
-        recurrence: req.body.recurrence ? [req.body.recurrence] : undefined,
+        recurrence: req.body.recurrence ? req.body.recurrence : undefined,
     };
 
     // Logging the event details for debugging purposes
