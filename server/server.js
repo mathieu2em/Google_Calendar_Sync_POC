@@ -11,6 +11,7 @@ require('dotenv').config({path: './vars/.env'});
 const express = require('express');
 const {google} = require('googleapis');
 const session = require('express-session');
+const serviceAccountCalendar = require('./serviceAccountCalendar.js')
 
 const app = express();
 const PORT = 3000;
@@ -72,7 +73,7 @@ app.get('/api/calendars', (req, res) => {
 });
 
 // Endpoint to create a new calendar
-app.post('/api/createCalendar', (req, res) => {
+app.post('/api/createCalendar', async (req, res) => {
     if (!req.session.tokens && !req.headers.authorization) {
         return res.status(401).send("Unauthorized");
     }
@@ -80,16 +81,47 @@ app.post('/api/createCalendar', (req, res) => {
     const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
     oauth2Client.setCredentials({ access_token: token });
 
+    /*
     const calendarDetails = {
         summary: req.body.summary,  // Assumes you send 'summary' in the request payload.
     };
 
-    calendar.calendars.insert({
-        requestBody: calendarDetails
-    }, (err, response) => {
-        if (err) return res.status(500).send(err);
-        res.send(response.data);
-    });
+    try {
+        const createResponse = await calendar.calendars.insert({
+            requestBody: calendarDetails
+        });
+
+        // Une fois que le calendrier est créé, vous pouvez configurer les ACLs pour que l'utilisateur soit en lecture seule.
+        const aclResponse = await calendar.acl.insert({
+            calendarId: createResponse.data.id,
+            requestBody: {
+                role: 'reader',  // Définit le rôle sur 'reader' pour une permission en lecture seule.
+                scope: {
+                    type: 'user',
+                    value: 'm.perron@t-b.ca' ,  // Remplacez ceci par l'email de l'utilisateur réel.
+                },
+            },
+        });
+
+        res.send({
+            calendar: createResponse.data,
+            acl: aclResponse.data,
+        });
+    } catch (err) {
+        console.error('Error creating calendar or setting permissions', err);
+        res.status(500).send(err);
+    }
+    */
+    try {
+        serviceAccountCalendar.createShareAndInsertCalendar('m.perron@t-b.ca', calendar).then((calendarId) => {
+            console.log(calendarId);
+        })
+        res.send({ message: 'Calendar created successfully.' });
+    }
+    catch { (err) => {
+        console.error(err);
+    }}
+    
 });
 
 // Endpoint to delete a calendar
@@ -165,11 +197,18 @@ app.post('/api/createEvent/:calendarId', (req, res) => {
         calendarId: req.params.calendarId,
         requestBody: eventDetails
     }, (err, response) => {
-        if (err) {
+        if (err && err.code === 403) {
+            serviceAccountCalendar.createEvent(req.params.calendarId, eventDetails).then((reponseData) => {
+                res.send(reponseData);
+            });
+        }
+        else if (err) {
             console.error('The API returned an error: ' + err);
             return res.status(500).send(err);
         }
-        res.send(response.data);
+        else {
+            res.send(response.data);
+        }
     });
 });
 
@@ -206,11 +245,18 @@ app.put('/api/editEvent/:calendarId/:eventId', (req, res) => {
         eventId: req.params.eventId,
         requestBody: eventDetails
     }, (err, response) => {
-        if (err) {
+        if (err && err.code === 403) {
+            serviceAccountCalendar.editEvent(req.params.calendarId, req.params.eventId, eventDetails).then((reponseData) => {
+                res.send(reponseData);
+            });
+        }
+        else if (err) {
             console.error('Error updating event: ', err);
             return res.status(500).send(err);
         }
-        res.send(response.data);
+        else {
+            res.send(response.data);
+        }
     });
 });
 
@@ -231,6 +277,36 @@ app.get('/api/calendar/:calendarId/event/:eventId', (req, res) => {
         if (err) return res.status(500).send(err);
         res.send(response.data);
     });
+});
+
+// Endpoint to set default reminders for a calendar
+app.patch('/api/setCalendarReminders/:calendarId', async (req, res) => {
+    if (!req.session.tokens && !req.headers.authorization) {
+        return res.status(401).send("Unauthorized");
+    }
+
+    const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
+    oauth2Client.setCredentials({ access_token: token });
+
+    const calendarId = req.params.calendarId;
+    const reminders = req.body.reminders; // This should be an array of reminder objects
+
+    try {
+        const calendarResponse = await calendar.calendars.patch({
+            calendarId: calendarId,
+            requestBody: {
+                defaultReminders: reminders
+            }
+        });
+
+        res.send({
+            message: 'Default reminders set successfully.',
+            calendar: calendarResponse.data
+        });
+    } catch (err) {
+        console.error('Error setting reminders: ', err);
+        res.status(500).send(err);
+    }
 });
 
 app.get('/auth/callback', (req, res) => {
