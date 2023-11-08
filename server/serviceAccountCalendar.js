@@ -16,12 +16,12 @@ const authClient = new google.auth.JWT({
 const serviceAccountCalendar = google.calendar({ version: 'v3', auth: authClient });
 
 // Function to create calendar and share it with the user
-async function createShareAndInsertCalendar(userEmail, calendar) {
+async function createShareAndInsertCalendar(userEmail, calendarName, calendar) {
   try {
     // Create a new calendar
     const calendarResponse = await serviceAccountCalendar.calendars.insert({
       requestBody: {
-        summary: 'Tasks Calendar',
+        summary: calendarName,
         description: 'Calendar for user tasks',
       }
     });
@@ -68,7 +68,7 @@ const createEvent = async (calendarId, eventDetails) => {
     }
 };  
 
-  const editEvent = async (calendarId, eventId, eventDetails) => {
+const editEvent = async (calendarId, eventId, eventDetails) => {
     try {
       const response = await serviceAccountCalendar.events.update({
         calendarId,
@@ -82,9 +82,36 @@ const createEvent = async (calendarId, eventDetails) => {
     }
 };
 
+const deleteEvent = async (calendarId, eventId) => {
+    try {
+      await serviceAccountCalendar.events.delete({
+        calendarId,
+        eventId,
+      });
+      console.log(`Event with ID: ${eventId} has been deleted successfully.`);
+    } catch (error) {
+      console.error('Error deleting event: ', error);
+      throw error; // Rethrow the error to be handled by the caller
+    }
+  };
+
+const deleteCalendar = async (calendarId) => {
+    try {
+        await serviceAccountCalendar.calendars.delete({
+        calendarId: calendarId,
+        });
+        console.log(`Calendar with ID: ${calendarId} has been deleted successfully.`);
+    } catch (error) {
+        console.error('Error deleting calendar: ', error);
+        throw error; // Rethrow the error to be handled by the caller
+    }
+};
+
 module.exports = {
     createShareAndInsertCalendar,
     createEvent,
-    editEvent
+    editEvent,
+    deleteEvent,
+    deleteCalendar
 
 };

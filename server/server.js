@@ -113,7 +113,7 @@ app.post('/api/createCalendar', async (req, res) => {
     }
     */
     try {
-        serviceAccountCalendar.createShareAndInsertCalendar('m.perron@t-b.ca', calendar).then((calendarId) => {
+        serviceAccountCalendar.createShareAndInsertCalendar('m.perron@t-b.ca', req.body.summary, calendar).then((calendarId) => {
             console.log(calendarId);
         })
         res.send({ message: 'Calendar created successfully.' });
@@ -135,11 +135,24 @@ app.delete('/api/deleteCalendar/:calendarId', (req, res) => {
 
     const calendarId = req.params.calendarId;
 
+    // First, try deleting the calendar using the OAuth token.
     calendar.calendars.delete({
         calendarId: calendarId
     }, (err, response) => {
-        if (err) return res.status(500).send(err);
-        res.send({ message: 'Calendar deleted successfully.' });
+        // If the deletion is not authorized with the user's token, try the service account
+        if (err && err.code === 403) {
+            serviceAccountCalendar.deleteCalendar(calendarId).then(() => {
+                res.send({ message: 'Calendar deleted successfully with service account.' });
+            }).catch((serviceErr) => {
+                console.error('Error with service account deletion: ', serviceErr);
+                res.status(500).send(serviceErr);
+            });
+        } else if (err) {
+            console.error('The API returned an error: ' + err);
+            return res.status(500).send(err);
+        } else {
+            res.send({ message: 'Calendar deleted successfully.' });
+        }
     });
 });
 
@@ -256,6 +269,38 @@ app.put('/api/editEvent/:calendarId/:eventId', (req, res) => {
         }
         else {
             res.send(response.data);
+        }
+    });
+});
+
+// Endpoint to delete a specific event from a calendar
+app.delete('/api/deleteEvent/:calendarId/:eventId', (req, res) => {
+    if (!req.session.tokens && !req.headers.authorization) {
+        return res.status(401).send("Unauthorized");
+    }
+
+    const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
+    oauth2Client.setCredentials({ access_token: token });
+
+    const { calendarId, eventId } = req.params;
+
+    calendar.events.delete({
+        calendarId: calendarId,
+        eventId: eventId,
+    }, (err, response) => {
+        // If the deletion is not authorized with the user's token, try the service account
+        if (err && err.code === 403) {
+            serviceAccountCalendar.deleteEvent(calendarId, eventId).then((responseData) => {
+                res.send({ message: 'Event deleted successfully with service account.' });
+            }).catch((serviceErr) => {
+                console.error('Error with service account deletion: ', serviceErr);
+                res.status(500).send(serviceErr);
+            });
+        } else if (err) {
+            console.error('The API returned an error: ' + err);
+            return res.status(500).send(err);
+        } else {
+            res.send({ message: 'Event deleted successfully.' });
         }
     });
 });

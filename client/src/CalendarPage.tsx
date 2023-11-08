@@ -19,9 +19,9 @@ const CalendarPage: React.FC<Props> = ({ token }) => {
   const [events, setEvents] = useState<Record<string, any[]>>({});
   const [unfoldedIndices, setUnfoldedIndices] = useState<number[]>([]); // Track which boxes are unfolded
   const [newCalendarName, setNewCalendarName] = useState<string>(""); // Name for the new calendar
-  const [newEventName, setNewEventName] = useState<string>(""); // Name for the new event
+  //const [newEventName, setNewEventName] = useState<string>(""); // Name for the new event
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
-  const [isLoadingEvent, setIsLoadingEvent] = useState(false);
+  //const [isLoadingEvent, setIsLoadingEvent] = useState(false);
   const [isLoadingDeleteCalendar, setIsLoadingDeleteCalendar] = useState(false);
 
   const createNewCalendar = () => {
@@ -79,6 +79,45 @@ const CalendarPage: React.FC<Props> = ({ token }) => {
     }
   };
 
+  // Add new function for deleting an event
+  const deleteEvent = (calendarId: string, eventId: string) => {
+    const isConfirmed = window.confirm(
+      "Are you sure you want to delete this event? This action cannot be undone."
+    );
+
+    if (isConfirmed && token) {
+      fetch(
+        `/api/deleteEvent/${encodeURIComponent(
+          calendarId
+        )}/${encodeURIComponent(eventId)}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+        .then((response) => {
+          if (response.ok) {
+            // Remove the event from the UI
+            setEvents((prevEvents) => ({
+              ...prevEvents,
+              [calendarId]: prevEvents[calendarId].filter(
+                (event) => event.id !== eventId
+              ),
+            }));
+          } else {
+            console.error("Error deleting event.");
+          }
+        })
+        .catch((error) => {
+          console.error("There was an error deleting the event: ", error);
+        });
+    }
+  };
+
+  /*
   const createNewEvent = (calendarId: string) => {
     setIsLoadingEvent(true); // Set loading
     if (token) {
@@ -102,6 +141,7 @@ const CalendarPage: React.FC<Props> = ({ token }) => {
       setIsLoadingEvent(false);
     }
   };
+  */
 
   const fetchCalendarEvents = (calendarId: string) => {
     if (token) {
@@ -221,6 +261,12 @@ const CalendarPage: React.FC<Props> = ({ token }) => {
                         <Link to={`${calendar.id}/event/${event.id}/edit`}>
                           Edit
                         </Link>
+                        {/* Add a button to delete the event */}
+                        <button
+                          onClick={() => deleteEvent(calendar.id, event.id)}
+                        >
+                          Delete
+                        </button>
                       </div>
                     ))}
                 </div>
