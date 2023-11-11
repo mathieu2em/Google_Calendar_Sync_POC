@@ -7,38 +7,32 @@
 // DO NOT USE THIS CODE AS CODEBASE AND DO NOT SEE THIS CODE AS GOOD CODE
 
 // THIS CODE DOEST NOT RESPECT GOOD PRACTICES AND IS CODED AS FAST AS POSSIBLE WITHOUT ANY CONCERN FOR ANYTHING OTHER THAN FUNCTIONALITY
+import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import CalendarPage from "./CalendarPage";
-import EventPage from "./EventPage";
+import AuthProvider, { useAuth } from "./AuthProvider"; // Import AuthProvider and useAuth
 
 const App: React.FC = () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const token = urlParams.get("token");
+  const { signIn } = useAuth(); // Use the signIn method from useAuth
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/calendar" element={<CalendarPage token={token} />} />
-        <Route
-          path="/calendar/:calendarId/event/:eventId/edit"
-          element={<EventPage token={token} />}
-        />
-        <Route
-          path="/calendar/:calendarId/event/create"
-          element={<EventPage token={token} />}
-        />
-        <Route
-          path="/"
-          element={
-            <div className="App">
-              <button onClick={() => (window.location.href = "/api/auth")}>
-                Connect to Outlook Calendar
-              </button>
-            </div>
-          }
-        />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Pass token as a prop or use Context API */}
+          <Route path="/calendar" element={<CalendarPage />} />
+          {/* Other routes */}
+          <Route
+            path="/"
+            element={
+              <div className="App">
+                <button onClick={signIn}>Connect to Outlook Calendar</button>
+              </div>
+            }
+          />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 };
 

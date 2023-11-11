@@ -7,14 +7,11 @@
 // DO NOT USE THIS CODE AS CODEBASE AND DO NOT SEE THIS CODE AS GOOD CODE
 
 // THIS CODE DOES NOT RESPECT GOOD PRACTICES AND IS CODED AS FAST AS POSSIBLE WITHOUT ANY CONCERN FOR ANYTHING OTHER THAN FUNCTIONALITY
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "./AuthProvider"; // Import useAuth
 
-interface Props {
-  token: string | null;
-}
-
-const CalendarPage: React.FC<Props> = ({ token }) => {
+const CalendarPage: React.FC = () => {
   const [calendars, setCalendars] = useState<any[]>([]);
   const [events, setEvents] = useState<Record<string, any[]>>({});
   const [unfoldedIndices, setUnfoldedIndices] = useState<number[]>([]); // Track which boxes are unfolded
@@ -23,27 +20,32 @@ const CalendarPage: React.FC<Props> = ({ token }) => {
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
   //const [isLoadingEvent, setIsLoadingEvent] = useState(false);
   const [isLoadingDeleteCalendar, setIsLoadingDeleteCalendar] = useState(false);
+  const { authResult } = useAuth(); // Use authResult from useAuth
+
+  useEffect(() => {
+    if (authResult) {
+      fetchAvailableCalendars();
+    }
+  }, [authResult]); // Fetch calendars when authResult changes
 
   const createNewCalendar = () => {
-    setIsLoadingCalendar(true); // Set loading
-    if (token) {
+    setIsLoadingCalendar(true);
+    if (authResult) {
       fetch("/api/createCalendar", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authResult.accessToken}`,
         },
         body: JSON.stringify({ summary: newCalendarName }),
       })
         .then((response) => response.json())
         .then((data) => {
-          console.log(data);
           if (data.id) {
-            // Refetch the available calendars to show the new one
             fetchAvailableCalendars();
           }
         })
-        .finally(() => setIsLoadingCalendar(false)); // Reset loading at the end;
+        .finally(() => setIsLoadingCalendar(false));
     } else {
       setIsLoadingCalendar(false);
     }
@@ -51,26 +53,17 @@ const CalendarPage: React.FC<Props> = ({ token }) => {
 
   const deleteCalendar = (calendarId: string) => {
     setIsLoadingDeleteCalendar(true);
-    // Show the confirmation popup
-    const isConfirmed = window.confirm(
-      "ARE YOU SURE TO PERMANENTLY DELETE THIS CALENDAR? DELETION IS PERMANENT!!!"
-    );
-
-    // Proceed with the deletion only if the user confirms
-    if (isConfirmed && token) {
+    if (authResult && window.confirm("ARE YOU SURE TO DELETE THIS CALENDAR?")) {
       fetch(`/api/deleteCalendar/${encodeURIComponent(calendarId)}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authResult.accessToken}`,
         },
       })
         .then((response) => {
           if (response.ok) {
-            // Refetch the calendars to update the list after deletion
             fetchAvailableCalendars();
-          } else {
-            console.error("Error deleting calendar.");
           }
         })
         .finally(() => setIsLoadingDeleteCalendar(false));
@@ -79,13 +72,11 @@ const CalendarPage: React.FC<Props> = ({ token }) => {
     }
   };
 
-  // Add new function for deleting an event
   const deleteEvent = (calendarId: string, eventId: string) => {
-    const isConfirmed = window.confirm(
-      "Are you sure you want to delete this event? This action cannot be undone."
-    );
-
-    if (isConfirmed && token) {
+    if (
+      authResult &&
+      window.confirm("Are you sure you want to delete this event?")
+    ) {
       fetch(
         `/api/deleteEvent/${encodeURIComponent(
           calendarId
@@ -93,66 +84,35 @@ const CalendarPage: React.FC<Props> = ({ token }) => {
         {
           method: "DELETE",
           headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${authResult.accessToken}`,
           },
         }
       )
         .then((response) => {
           if (response.ok) {
-            // Remove the event from the UI
             setEvents((prevEvents) => ({
               ...prevEvents,
               [calendarId]: prevEvents[calendarId].filter(
                 (event) => event.id !== eventId
               ),
             }));
-          } else {
-            console.error("Error deleting event.");
           }
         })
         .catch((error) => {
-          console.error("There was an error deleting the event: ", error);
+          console.error("Error deleting event:", error);
         });
     }
   };
 
-  /*
-  const createNewEvent = (calendarId: string) => {
-    setIsLoadingEvent(true); // Set loading
-    if (token) {
-      fetch(`/api/createEvent/${encodeURIComponent(calendarId)}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ eventName: newEventName }),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.success) {
-            // Refetch the events for the specific calendar
-            fetchCalendarEvents(calendarId);
-          }
-        })
-        .finally(() => setIsLoadingEvent(false));
-    } else {
-      setIsLoadingEvent(false);
-    }
-  };
-  */
-
   const fetchCalendarEvents = (calendarId: string) => {
-    if (token) {
+    if (authResult) {
       fetch(`/api/events/${encodeURIComponent(calendarId)}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authResult.accessToken}`,
         },
       })
         .then((response) => response.json())
         .then((data) => {
-          console.log(data);
           setEvents((prevEvents) => ({
             ...prevEvents,
             [calendarId]: data,
@@ -160,37 +120,27 @@ const CalendarPage: React.FC<Props> = ({ token }) => {
         })
         .catch((error) => {
           console.error(
-            `There was an error fetching events for calendar ${calendarId}`,
+            `Error fetching events for calendar ${calendarId}:`,
             error
           );
         });
-    } else {
-      console.error("No token available");
     }
   };
 
   const fetchAvailableCalendars = () => {
-    if (token) {
-      // Use the token to call API methods from the express server
+    if (authResult) {
       fetch("/api/calendars", {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authResult.accessToken}`,
         },
       })
         .then((response) => response.json())
         .then((data) => {
-          console.log(data);
-          // Handle the list of calendars returned from the server
           setCalendars(data);
         })
         .catch((error) => {
-          console.error(
-            "There was an error fetching available calendars",
-            error
-          );
+          console.error("Error fetching calendars:", error);
         });
-    } else {
-      console.error("No token available");
     }
   };
 

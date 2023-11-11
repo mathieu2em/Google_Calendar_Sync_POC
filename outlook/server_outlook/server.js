@@ -30,12 +30,6 @@ const msalConfig = {
 
 const cca = new ConfidentialClientApplication(msalConfig);
 
-// Redirect URI registered in the Azure portal for your application
-const redirectUri = 'http://localhost:3000/auth/callback';
-
-// Scopes you are requesting access to
-const scopes = ['https://graph.microsoft.com/.default'];
-
 app.use(express.json());
 
 // Use express-session for handling sessions
