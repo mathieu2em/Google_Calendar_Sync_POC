@@ -32,7 +32,7 @@ const App: React.FC = () => {
           element={
             <div className="App">
               <button onClick={() => (window.location.href = "/api/auth")}>
-                Connect to Google Calendar
+                Connect to Outlook Calendar
               </button>
             </div>
           }

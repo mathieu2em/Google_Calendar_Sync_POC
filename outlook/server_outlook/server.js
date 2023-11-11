@@ -9,13 +9,32 @@
 // THIS CODE DOEST NOT RESPECT GOOD PRACTICES AND IS CODED AS FAST AS POSSIBLE WITHOUT ANY CONCERN FOR ANYTHING OTHER THAN FUNCTIONALITY
 require('dotenv').config({path: './vars/.env'});
 const express = require('express');
-const {google} = require('googleapis');
 const session = require('express-session');
-const serviceAccountCalendar = require('./serviceAccountCalendar.js')
+
+const { Client } = require('@microsoft/microsoft-graph-client');
+require('isomorphic-fetch'); // Needed for Microsoft Graph client
+
+const { ConfidentialClientApplication } = require('@azure/msal-node');
 
 const app = express();
 const PORT = 3000;
-const OAuth2 = google.auth.OAuth2;
+
+// MSAL configuration
+const msalConfig = {
+    auth: {
+        clientId: process.env.CLIENT_ID,
+        authority: `https://login.microsoftonline.com/${process.env.TENANT_ID}`,
+        clientSecret: process.env.CLIENT_SECRET,
+    }
+};
+
+const cca = new ConfidentialClientApplication(msalConfig);
+
+// Redirect URI registered in the Azure portal for your application
+const redirectUri = 'http://localhost:3000/auth/callback';
+
+// Scopes you are requesting access to
+const scopes = ['https://graph.microsoft.com/.default'];
 
 app.use(express.json());
 
@@ -26,35 +45,33 @@ app.use(session({
     saveUninitialized: true,
 }));
 
-const oauth2Client = new OAuth2(
-    process.env.CLIENT_ID,
-    process.env.CLIENT_SECRET,
-    'http://localhost:3000/auth/callback'
-);
+app.get('/api/auth', (req, res) => {
+    const authCodeUrlParameters = {
+        scopes: ["https://graph.microsoft.com/.default"],
+        redirectUri: "http://localhost:3000/auth/callback",
+    };
 
-// Setup the Google Calendar API
-const calendar = google.calendar({version: 'v3', auth: oauth2Client});
-
-app.get('/api/', (req, res) => {
-    if (!req.session.tokens) {
-        return res.redirect('/api/auth');
-    }
-    oauth2Client.setCredentials(req.session.tokens);
-    calendar.events.list({
-        calendarId: 'primary',
-    }, (err, response) => {
-        if (err) return res.status(500).send(err);
-        res.send(response.data.items);
-    });
+    cca.getAuthCodeUrl(authCodeUrlParameters)
+        .then((response) => {
+            res.redirect(response);
+        })
+        .catch((error) => console.log(JSON.stringify(error)));
 });
 
-app.get('/api/auth', (req, res) => {
-    const url = oauth2Client.generateAuthUrl({
-        access_type: 'offline',
-        scope: ['https://www.googleapis.com/auth/calendar.events',
-        'https://www.googleapis.com/auth/calendar']
-    });
-    res.redirect(url);
+app.get('/auth/callback', async (req, res) => {
+    const tokenRequest = {
+        code: req.query.code,
+        scopes: ["https://graph.microsoft.com/.default"],
+        redirectUri: "http://localhost:3000/auth/callback",
+    };
+
+    try {
+        const response = await cca.acquireTokenByCode(tokenRequest);
+        res.redirect(`http://localhost:5173/calendar?token=${response.access_token}`); // Redirect to the home page or dashboard as needed
+    } catch (error) {
+        console.error('Access Token Error', error.message);
+        res.status(500).json('Authentication failed');
+    }
 });
 
 app.get('/api/calendars', (req, res) => {
@@ -81,37 +98,6 @@ app.post('/api/createCalendar', async (req, res) => {
     const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
     oauth2Client.setCredentials({ access_token: token });
 
-    /*
-    const calendarDetails = {
-        summary: req.body.summary,  // Assumes you send 'summary' in the request payload.
-    };
-
-    try {
-        const createResponse = await calendar.calendars.insert({
-            requestBody: calendarDetails
-        });
-
-        // Une fois que le calendrier est créé, vous pouvez configurer les ACLs pour que l'utilisateur soit en lecture seule.
-        const aclResponse = await calendar.acl.insert({
-            calendarId: createResponse.data.id,
-            requestBody: {
-                role: 'reader',  // Définit le rôle sur 'reader' pour une permission en lecture seule.
-                scope: {
-                    type: 'user',
-                    value: 'm.perron@t-b.ca' ,  // Remplacez ceci par l'email de l'utilisateur réel.
-                },
-            },
-        });
-
-        res.send({
-            calendar: createResponse.data,
-            acl: aclResponse.data,
-        });
-    } catch (err) {
-        console.error('Error creating calendar or setting permissions', err);
-        res.status(500).send(err);
-    }
-    */
     try {
         serviceAccountCalendar.createShareAndInsertCalendar('m.perron@t-b.ca', req.body.summary, calendar).then((calendarId) => {
             console.log(calendarId);
@@ -352,18 +338,6 @@ app.patch('/api/setCalendarReminders/:calendarId', async (req, res) => {
         console.error('Error setting reminders: ', err);
         res.status(500).send(err);
     }
-});
-
-app.get('/auth/callback', (req, res) => {
-    const code = req.query.code;
-    oauth2Client.getToken(code, (err, tokens) => {
-        if (err) {
-            console.error('Error authenticating', err);
-            return res.status(500).send(err);
-        }
-        // Redirect to the CalendarPage in frontend with token as a parameter
-        res.redirect(`http://localhost:5173/calendar?token=${tokens.access_token}`);
-    });
 });
 
 app.listen(PORT, () => {
