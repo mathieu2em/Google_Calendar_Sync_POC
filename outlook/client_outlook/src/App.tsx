@@ -15,16 +15,16 @@ import SignInButton from "./components/SignInButton";
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Routes>
           {/* Pass token as a prop or use Context API */}
           <Route path="/calendar" element={<CalendarPage />} />
           {/* Other routes */}
           <Route path="/" element={<SignInButton />} />
         </Routes>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 };
 

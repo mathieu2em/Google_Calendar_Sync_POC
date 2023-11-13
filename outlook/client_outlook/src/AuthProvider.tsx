@@ -11,6 +11,7 @@ import {
   Configuration,
   AuthenticationResult,
 } from "@azure/msal-browser";
+import { useNavigate } from "react-router-dom";
 
 export const msalConfig: Configuration = {
   auth: {
@@ -49,8 +50,10 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [authResult, setAuthResult] = useState<AuthenticationResult | null>(
     null
   );
+  const navigate = useNavigate(); // Hook for navigation
 
   useEffect(() => {
+    console.log("AuthProvider");
     msalInstance = new PublicClientApplication(msalConfig);
     msalInstance.initialize().then(() => {
       msalInstance
@@ -58,9 +61,11 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .then((response) => {
           if (response) {
             setAuthResult(response);
+            navigate("/calendar"); // Redirect to dashboard or another route
           } else {
             const accounts = msalInstance.getAllAccounts();
             if (accounts.length > 0) {
+              console.log(accounts);
               msalInstance.setActiveAccount(accounts[0]);
               msalInstance
                 .acquireTokenSilent({
