@@ -15,9 +15,8 @@ import {
 export const msalConfig: Configuration = {
   auth: {
     clientId: "40890ffb-56fa-427e-b3ca-37a602713284", // Replace with your client ID
-    authority:
-      "https://login.microsoftonline.com/e5e9996e-6b9b-4ed5-b8e3-51ff270fbc0e", // Replace with your tenant ID
-    redirectUri: "http://localhost:3000/auth/callback",
+    authority: "https://login.microsoftonline.com/common", // Replace with your tenant ID
+    redirectUri: "http://localhost:5173",
   },
   cache: {
     cacheLocation: "sessionStorage", // This configures where your cache will be stored
@@ -25,7 +24,7 @@ export const msalConfig: Configuration = {
   },
 };
 
-const msalInstance = new PublicClientApplication(msalConfig);
+let msalInstance: PublicClientApplication;
 
 // Context for auth state
 interface AuthContextType {
@@ -52,34 +51,45 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 
   useEffect(() => {
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) {
-      msalInstance.setActiveAccount(accounts[0]);
-    }
+    msalInstance = new PublicClientApplication(msalConfig);
+    msalInstance.initialize().then(() => {
+      msalInstance
+        .handleRedirectPromise()
+        .then((response) => {
+          if (response) {
+            setAuthResult(response);
+          } else {
+            const accounts = msalInstance.getAllAccounts();
+            if (accounts.length > 0) {
+              msalInstance.setActiveAccount(accounts[0]);
+              msalInstance
+                .acquireTokenSilent({
+                  scopes: ["User.Read", "Calendars.ReadWrite"],
+                  account: accounts[0],
+                })
+                .then(setAuthResult)
+                .catch((error) => {
+                  console.error("Silent token acquisition failed", error);
+                  // Optionally initiate interactive login here
+                });
+            }
+          }
+        })
+        .catch((error) => {
+          console.error("Handle redirect error", error);
+        });
+    });
   }, []);
 
-  const signIn = () => {
-    msalInstance
-      .loginPopup({
-        scopes: ["User.Read", "Calendars.Read"],
-      })
-      .then((response) => {
-        setAuthResult(response);
-      })
-      .catch((error: any) => {
-        console.error("Login failed", error);
-      });
+  const signIn = async () => {
+    console.log("signIn 2");
+    msalInstance.loginRedirect({
+      scopes: ["User.Read", "Calendars.ReadWrite"],
+    });
   };
 
   const signOut = () => {
-    msalInstance
-      .logoutPopup()
-      .then(() => {
-        setAuthResult(null);
-      })
-      .catch((error: any) => {
-        console.error("Logout failed", error);
-      });
+    msalInstance.logoutRedirect();
   };
 
   return (

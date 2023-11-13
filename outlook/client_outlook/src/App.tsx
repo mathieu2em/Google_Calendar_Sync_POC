@@ -10,11 +10,10 @@
 import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import CalendarPage from "./CalendarPage";
-import AuthProvider, { useAuth } from "./AuthProvider"; // Import AuthProvider and useAuth
+import AuthProvider from "./AuthProvider"; // Import AuthProvider and useAuth
+import SignInButton from "./components/SignInButton";
 
 const App: React.FC = () => {
-  const { signIn } = useAuth(); // Use the signIn method from useAuth
-
   return (
     <AuthProvider>
       <Router>
@@ -22,14 +21,7 @@ const App: React.FC = () => {
           {/* Pass token as a prop or use Context API */}
           <Route path="/calendar" element={<CalendarPage />} />
           {/* Other routes */}
-          <Route
-            path="/"
-            element={
-              <div className="App">
-                <button onClick={signIn}>Connect to Outlook Calendar</button>
-              </div>
-            }
-          />
+          <Route path="/" element={<SignInButton />} />
         </Routes>
       </Router>
     </AuthProvider>
