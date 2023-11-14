@@ -20,7 +20,7 @@ const CalendarPage: React.FC = () => {
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
   //const [isLoadingEvent, setIsLoadingEvent] = useState(false);
   const [isLoadingDeleteCalendar, setIsLoadingDeleteCalendar] = useState(false);
-  const { authResult } = useAuth(); // Use authResult from useAuth
+  const { getAuthToken, authResult } = useAuth(); // Use authResult from useAuth
 
   useEffect(() => {
     if (authResult) {
@@ -128,20 +128,24 @@ const CalendarPage: React.FC = () => {
   };
 
   const fetchAvailableCalendars = () => {
-    if (authResult) {
-      fetch("/api/calendars", {
-        headers: {
-          Authorization: `Bearer ${authResult.accessToken}`,
-        },
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          setCalendars(data);
+    getAuthToken()
+      .then((token) => {
+        fetch("/api/calendars", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         })
-        .catch((error) => {
-          console.error("Error fetching calendars:", error);
-        });
-    }
+          .then((response) => response.json())
+          .then((data) => {
+            setCalendars(data);
+          })
+          .catch((error) => {
+            console.error("Error fetching calendars:", error);
+          });
+      })
+      .catch((error) => {
+        console.error("Error getting auth token:", error);
+      });
   };
 
   const toggleUnfold = (index: number) => {

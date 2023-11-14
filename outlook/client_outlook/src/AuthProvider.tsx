@@ -32,12 +32,14 @@ interface AuthContextType {
   authResult: AuthenticationResult | null;
   signIn: () => void;
   signOut: () => void;
+  getAuthToken: () => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   authResult: null,
   signIn: () => {},
   signOut: () => {},
+  getAuthToken: async () => "",
 });
 
 interface AuthProviderProps {
@@ -86,6 +88,24 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
   }, []);
 
+  const getAuthToken = async () => {
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      try {
+        const response = await msalInstance.acquireTokenSilent({
+          scopes: ["User.Read", "Calendars.ReadWrite"],
+          account: accounts[0],
+        });
+        return response.accessToken;
+      } catch (error) {
+        console.error("Error acquiring token silently", error);
+        // Optionally, handle interaction required error by acquiring token interactively
+        throw error;
+      }
+    }
+    throw new Error("No accounts found");
+  };
+
   const signIn = async () => {
     console.log("signIn 2");
     msalInstance.loginRedirect({
@@ -98,7 +118,7 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ authResult, signIn, signOut }}>
+    <AuthContext.Provider value={{ authResult, signIn, signOut, getAuthToken }}>
       {children}
     </AuthContext.Provider>
   );

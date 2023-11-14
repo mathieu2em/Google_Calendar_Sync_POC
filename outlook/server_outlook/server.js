@@ -39,50 +39,37 @@ app.use(session({
     saveUninitialized: true,
 }));
 
-app.get('/api/auth', (req, res) => {
-    const authCodeUrlParameters = {
-        scopes: ["https://graph.microsoft.com/.default"],
-        redirectUri: "http://localhost:3000/auth/callback",
-    };
-
-    cca.getAuthCodeUrl(authCodeUrlParameters)
-        .then((response) => {
-            res.redirect(response);
-        })
-        .catch((error) => console.log(JSON.stringify(error)));
-});
-
-app.get('/auth/callback', async (req, res) => {
-    const tokenRequest = {
-        code: req.query.code,
-        scopes: ["https://graph.microsoft.com/.default"],
-        redirectUri: "http://localhost:3000/auth/callback",
-    };
-
+app.get('/api/calendars', async (req, res) => {
     try {
-        const response = await cca.acquireTokenByCode(tokenRequest);
-        res.redirect(`http://localhost:5173/calendar?token=${response.access_token}`); // Redirect to the home page or dashboard as needed
+      // Retrieve the access token from the request header
+      const accessToken = req.headers.authorization.split(' ')[1];
+  
+      if (!accessToken) {
+        return res.status(401).send('Access Token is required');
+      }
+  
+      // Endpoint to Microsoft Graph API to fetch calendars
+      const url = 'https://graph.microsoft.com/v1.0/me/calendars';
+  
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Error fetching calendars: ${response.statusText}`);
+      }
+  
+      const calendars = await response.json();
+      res.json(calendars);
     } catch (error) {
-        console.error('Access Token Error', error.message);
-        res.status(500).json('Authentication failed');
+      console.error('Server error:', error);
+      res.status(500).send(error.message);
     }
-});
+  });
 
-app.get('/api/calendars', (req, res) => {
-    if (!req.session.tokens && !req.headers.authorization) {
-        return res.status(401).send("Unauthorized");
-    }
-    
-    // Prioritize session tokens. If not available, use the token from the Authorization header.
-    const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
-    oauth2Client.setCredentials({ access_token: token });
-
-    calendar.calendarList.list({}, (err, response) => {
-        if (err) return res.status(500).send(err);
-        res.send(response.data.items);
-    });
-});
-
+  
 // Endpoint to create a new calendar
 app.post('/api/createCalendar', async (req, res) => {
     if (!req.session.tokens && !req.headers.authorization) {
