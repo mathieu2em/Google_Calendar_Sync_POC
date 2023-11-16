@@ -39,7 +39,7 @@ const CalendarPage: React.FC = () => {
           .then((response) => response.json())
           .then((data) => {
             console.log(data);
-            setCalendars(data.value);
+            setCalendars(data);
           })
           .catch((error) => {
             console.error("Error fetching calendars:", error);
@@ -126,6 +126,7 @@ const CalendarPage: React.FC = () => {
                 (event) => event.id !== eventId
               ),
             }));
+            setUnfoldedIndices([]);
           }
         })
         .catch((error) => {

@@ -26,33 +26,39 @@ app.use(session({
 
 app.get('/api/calendars', async (req, res) => {
     try {
-      // Retrieve the access token from the request header
-      const accessToken = req.headers.authorization.split(' ')[1];
-  
-      if (!accessToken) {
-        return res.status(401).send('Access Token is required');
-      }
-  
-      // Endpoint to Microsoft Graph API to fetch calendars
-      const url = 'https://graph.microsoft.com/v1.0/me/calendars';
-  
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-  
-      if (!response.ok) {
-        throw new Error(`Error fetching calendars: ${response.statusText}`);
-      }
-  
-      const calendars = await response.json();
-      res.json(calendars);
+        // Retrieve the access token from the request header
+        const accessToken = req.headers.authorization.split(' ')[1];
+
+        if (!accessToken) {
+            return res.status(401).send('Access Token is required');
+        }
+
+        let url = 'https://graph.microsoft.com/v1.0/me/calendars';
+        let allCalendars = [];
+
+        while (url) {
+            const response = await fetch(url, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error fetching calendars: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            allCalendars = allCalendars.concat(data.value);
+
+            url = data['@odata.nextLink']; // Update the URL if there is a next page
+        }
+
+        res.json(allCalendars);
     } catch (error) {
-      console.error('Server error:', error);
-      res.status(500).send(error.message);
+        console.error('Server error:', error);
+        res.status(500).send(error.message);
     }
-  });
+});
 
   
   app.post('/api/createCalendar', async (req, res) => {
@@ -67,6 +73,7 @@ app.get('/api/calendars', async (req, res) => {
         // Payload for creating a new calendar
         const calendarData = {
             name: req.body.name, // Make sure this aligns with what you're sending from the frontend
+            canEdit:false,
         };
 
         // Endpoint to Microsoft Graph API to create a calendar
@@ -93,36 +100,41 @@ app.get('/api/calendars', async (req, res) => {
     }
 });
 
-// Endpoint to delete a calendar
-app.delete('/api/deleteCalendar/:calendarId', (req, res) => {
-    if (!req.session.tokens && !req.headers.authorization) {
-        return res.status(401).send("Unauthorized");
-    }
+app.delete('/api/deleteCalendar/:calendarId', async (req, res) => {
+    try {
+        // Retrieve the access token from the request header
+        const accessToken = req.headers.authorization.split(' ')[1];
 
-    const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
-    oauth2Client.setCredentials({ access_token: token });
-
-    const calendarId = req.params.calendarId;
-
-    // First, try deleting the calendar using the OAuth token.
-    calendar.calendars.delete({
-        calendarId: calendarId
-    }, (err, response) => {
-        // If the deletion is not authorized with the user's token, try the service account
-        if (err && err.code === 403) {
-            serviceAccountCalendar.deleteCalendar(calendarId).then(() => {
-                res.send({ message: 'Calendar deleted successfully with service account.' });
-            }).catch((serviceErr) => {
-                console.error('Error with service account deletion: ', serviceErr);
-                res.status(500).send(serviceErr);
-            });
-        } else if (err) {
-            console.error('The API returned an error: ' + err);
-            return res.status(500).send(err);
-        } else {
-            res.send({ message: 'Calendar deleted successfully.' });
+        if (!accessToken) {
+            return res.status(401).send('Access Token is required');
         }
-    });
+
+        // Retrieve the calendar ID from the request parameters
+        const calendarId = req.params.calendarId;
+
+        if (!calendarId) {
+            return res.status(400).send('Calendar ID is required');
+        }
+
+        // Endpoint to Microsoft Graph API to delete a calendar
+        const url = `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}`;
+
+        const response = await fetch(url, {
+            method: 'DELETE',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error deleting calendar: ${response.statusText}`);
+        }
+
+        res.send({ message: 'Calendar deleted successfully' });
+    } catch (error) {
+        console.error('Server error:', error);
+        res.status(500).send(error.message);
+    }
 });
 
 // New method to fetch events from a specific calendar
