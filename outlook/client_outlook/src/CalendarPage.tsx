@@ -18,7 +18,7 @@ const CalendarPage: React.FC = () => {
   const [newCalendarName, setNewCalendarName] = useState<string>(""); // Name for the new calendar
   //const [newEventName, setNewEventName] = useState<string>(""); // Name for the new event
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
-  //const [isLoadingEvent, setIsLoadingEvent] = useState(false);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isLoadingDeleteCalendar, setIsLoadingDeleteCalendar] = useState(false);
   const { getAuthToken, authResult } = useAuth(); // Use authResult from useAuth
 
@@ -136,26 +136,40 @@ const CalendarPage: React.FC = () => {
   };
 
   const fetchCalendarEvents = (calendarId: string) => {
-    if (authResult) {
-      fetch(`/api/events/${encodeURIComponent(calendarId)}`, {
-        headers: {
-          Authorization: `Bearer ${authResult.accessToken}`,
-        },
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          setEvents((prevEvents) => ({
-            ...prevEvents,
-            [calendarId]: data,
-          }));
+    setIsLoadingEvents(true); // Assuming you have a state to track loading of events
+    getAuthToken()
+      .then((token) => {
+        const url = `/api/events/${encodeURIComponent(calendarId)}`;
+        fetch(url, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         })
-        .catch((error) => {
-          console.error(
-            `Error fetching events for calendar ${calendarId}:`,
-            error
-          );
-        });
-    }
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then((data) => {
+            console.log(data);
+            setEvents((prevEvents) => ({
+              ...prevEvents,
+              [calendarId]: data,
+            }));
+          })
+          .catch((error) => {
+            console.error(
+              `Error fetching events for calendar ${calendarId}:`,
+              error
+            );
+          })
+          .finally(() => setIsLoadingEvents(false));
+      })
+      .catch((error) => {
+        console.error("Error getting auth token:", error);
+      });
   };
 
   const toggleUnfold = (index: number) => {
@@ -225,7 +239,7 @@ const CalendarPage: React.FC = () => {
                   {events[calendar.id] &&
                     events[calendar.id].map((event) => (
                       <div key={event.id}>
-                        {event.summary}
+                        {event.subject}
                         <Link to={`${calendar.id}/event/${event.id}/edit`}>
                           Edit
                         </Link>

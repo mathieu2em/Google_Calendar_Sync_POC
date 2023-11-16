@@ -137,22 +137,40 @@ app.delete('/api/deleteCalendar/:calendarId', async (req, res) => {
     }
 });
 
-// New method to fetch events from a specific calendar
-app.get('/api/events/:calendarId', (req, res) => {
-    if (!req.session.tokens && !req.headers.authorization) {
-        return res.status(401).send("Unauthorized");
+app.get('/api/events/:calendarId', async (req, res) => {
+    try {
+        const accessToken = req.headers.authorization.split(' ')[1];
+
+        if (!accessToken) {
+            return res.status(401).send('Access Token is required');
+        }
+
+        const calendarId = req.params.calendarId;
+        let url = `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events`;
+        let allEvents = [];
+
+        while (url) {
+            const response = await fetch(url, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error fetching events: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            allEvents = allEvents.concat(data.value);
+
+            url = data['@odata.nextLink']; // Update the URL if there is a next page
+        }
+
+        res.json(allEvents);
+    } catch (error) {
+        console.error('Server error:', error);
+        res.status(500).send(error.message);
     }
-
-    // Prioritize session tokens. If not available, use the token from the Authorization header.
-    const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
-    oauth2Client.setCredentials({ access_token: token });
-
-    calendar.events.list({
-        calendarId: req.params.calendarId,
-    }, (err, response) => {
-        if (err) return res.status(500).send(err);
-        res.send(response.data.items);
-    });
 });
 
 // Endpoint to create a new event in a specific calendar
