@@ -10,25 +10,10 @@
 require('dotenv').config({path: './vars/.env'});
 const express = require('express');
 const session = require('express-session');
-
-const { Client } = require('@microsoft/microsoft-graph-client');
 require('isomorphic-fetch'); // Needed for Microsoft Graph client
-
-const { ConfidentialClientApplication } = require('@azure/msal-node');
 
 const app = express();
 const PORT = 3000;
-
-// MSAL configuration
-const msalConfig = {
-    auth: {
-        clientId: process.env.CLIENT_ID,
-        authority: `https://login.microsoftonline.com/${process.env.TENANT_ID}`,
-        clientSecret: process.env.CLIENT_SECRET,
-    }
-};
-
-const cca = new ConfidentialClientApplication(msalConfig);
 
 app.use(express.json());
 
@@ -70,25 +55,42 @@ app.get('/api/calendars', async (req, res) => {
   });
 
   
-// Endpoint to create a new calendar
-app.post('/api/createCalendar', async (req, res) => {
-    if (!req.session.tokens && !req.headers.authorization) {
-        return res.status(401).send("Unauthorized");
-    }
-
-    const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
-    oauth2Client.setCredentials({ access_token: token });
-
+  app.post('/api/createCalendar', async (req, res) => {
     try {
-        serviceAccountCalendar.createShareAndInsertCalendar('m.perron@t-b.ca', req.body.summary, calendar).then((calendarId) => {
-            console.log(calendarId);
-        })
-        res.send({ message: 'Calendar created successfully.' });
+        // Retrieve the access token from the request header
+        const accessToken = req.headers.authorization.split(' ')[1];
+
+        if (!accessToken) {
+            return res.status(401).send('Access Token is required');
+        }
+
+        // Payload for creating a new calendar
+        const calendarData = {
+            name: req.body.name, // Make sure this aligns with what you're sending from the frontend
+        };
+
+        // Endpoint to Microsoft Graph API to create a calendar
+        const url = 'https://graph.microsoft.com/v1.0/me/calendars';
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(calendarData),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error creating calendar: ${response.statusText}`);
+        }
+
+        const newCalendar = await response.json();
+        res.json({ message: 'Calendar created successfully', calendar: newCalendar });
+    } catch (error) {
+        console.error('Server error:', error);
+        res.status(500).send(error.message);
     }
-    catch { (err) => {
-        console.error(err);
-    }}
-    
 });
 
 // Endpoint to delete a calendar

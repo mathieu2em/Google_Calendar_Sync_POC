@@ -28,27 +28,57 @@ const CalendarPage: React.FC = () => {
     }
   }, [authResult]); // Fetch calendars when authResult changes
 
+  const fetchAvailableCalendars = () => {
+    getAuthToken()
+      .then((token) => {
+        fetch("/api/calendars", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log(data);
+            setCalendars(data.value);
+          })
+          .catch((error) => {
+            console.error("Error fetching calendars:", error);
+          });
+      })
+      .catch((error) => {
+        console.error("Error getting auth token:", error);
+      });
+  };
+
   const createNewCalendar = () => {
     setIsLoadingCalendar(true);
-    if (authResult) {
-      fetch("/api/createCalendar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authResult.accessToken}`,
-        },
-        body: JSON.stringify({ summary: newCalendarName }),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.id) {
-            fetchAvailableCalendars();
-          }
+    getAuthToken()
+      .then((token) => {
+        fetch("/api/createCalendar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ name: newCalendarName }),
         })
-        .finally(() => setIsLoadingCalendar(false));
-    } else {
-      setIsLoadingCalendar(false);
-    }
+          .then((response) => {
+            if (response.ok) {
+              fetchAvailableCalendars();
+              setNewCalendarName("");
+            }
+            return response.json();
+          })
+          .catch((error) => {
+            // Handle any errors here, maybe set an error state or log the error
+            console.error("Error creating new calendar:", error);
+          })
+          .finally(() => setIsLoadingCalendar(false));
+      })
+      .catch((error) => {
+        // Handle errors related to getAuthToken
+        console.error("Error getting auth token:", error);
+      });
   };
 
   const deleteCalendar = (calendarId: string) => {
@@ -127,27 +157,6 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  const fetchAvailableCalendars = () => {
-    getAuthToken()
-      .then((token) => {
-        fetch("/api/calendars", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            setCalendars(data);
-          })
-          .catch((error) => {
-            console.error("Error fetching calendars:", error);
-          });
-      })
-      .catch((error) => {
-        console.error("Error getting auth token:", error);
-      });
-  };
-
   const toggleUnfold = (index: number) => {
     setUnfoldedIndices((prevIndices) => {
       if (prevIndices.includes(index)) {
@@ -185,9 +194,13 @@ const CalendarPage: React.FC = () => {
       {/* Displaying the calendars in boxes */}
       <div>
         {calendars.map((calendar, index) => (
-          <div key={index} className="calendar-box">
+          <div
+            key={index}
+            className="calendar-box"
+            onClick={() => toggleUnfold(index)}
+          >
             <div className="calendar-header">
-              <h3 onClick={() => toggleUnfold(index)}>{calendar.summary}</h3>
+              <h3>{calendar.name}</h3>
               <button
                 className="delete-btn"
                 onClick={() => deleteCalendar(calendar.id)}
