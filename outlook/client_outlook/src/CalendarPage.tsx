@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // DISCLAIMER :
 
 // THIS CODE IS NOT PRODUCTION READY NOR REPRESENT GOOD CODING PRACTICES
@@ -18,6 +19,7 @@ const CalendarPage: React.FC = () => {
   const [newCalendarName, setNewCalendarName] = useState<string>(""); // Name for the new calendar
   //const [newEventName, setNewEventName] = useState<string>(""); // Name for the new event
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isLoadingDeleteCalendar, setIsLoadingDeleteCalendar] = useState(false);
   const { getAuthToken, authResult } = useAuth(); // Use authResult from useAuth

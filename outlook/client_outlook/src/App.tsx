@@ -12,6 +12,7 @@ import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import CalendarPage from "./CalendarPage";
 import AuthProvider from "./AuthProvider"; // Import AuthProvider and useAuth
 import SignInButton from "./components/SignInButton";
+import EventPage from "./EventPage";
 
 const App: React.FC = () => {
   return (
@@ -21,6 +22,14 @@ const App: React.FC = () => {
           {/* Pass token as a prop or use Context API */}
           <Route path="/calendar" element={<CalendarPage />} />
           {/* Other routes */}
+          <Route
+            path="/calendar/:calendarId/event/:eventId/edit"
+            element={<EventPage />}
+          />
+          <Route
+            path="/calendar/:calendarId/event/create"
+            element={<EventPage />}
+          />
           <Route path="/" element={<SignInButton />} />
         </Routes>
       </AuthProvider>

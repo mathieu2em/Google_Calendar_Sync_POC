@@ -1,12 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import "./EventPage.css";
+import { useAuth } from "./AuthProvider";
 
-interface Props {
-  token: string | null;
-}
-
-const EventPage: React.FC<Props> = ({ token }) => {
+const EventPage: React.FC = () => {
   const { calendarId, eventId } = useParams<{
     calendarId?: string;
     eventId?: string;
@@ -25,12 +24,16 @@ const EventPage: React.FC<Props> = ({ token }) => {
   const [endAfter, setEndAfter] = useState<number>(1);
   const [endDate, setEndDate] = useState<Date | null>(null);
 
+  const { getAuthToken, authResult } = useAuth();
+
   /**
    * To create en event in google calendar we need the calendarId
    * @param calendarId The Id of the calendar in which to create an event.
    */
   const createEvent = async (calendarId: string) => {
     try {
+      const token = await getAuthToken(); // Assuming getAuthToken is a method that resolves with a token
+
       const response = await fetch(`/api/createEvent/${calendarId}`, {
         method: "POST",
         headers: {
@@ -38,8 +41,8 @@ const EventPage: React.FC<Props> = ({ token }) => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          summary: eventName,
-          description: description,
+          summary: eventName, // eventName should be defined in your function's scope or passed as a parameter
+          description: description, // Similarly, description, location, etc., should be available in the scope
           location: location,
           start: { dateTime: startTime },
           end: { dateTime: endTime },
@@ -47,8 +50,12 @@ const EventPage: React.FC<Props> = ({ token }) => {
         }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
-      console.log(data);
+      console.log("Event created:", data);
     } catch (error) {
       console.error("Error creating event:", error);
     }
@@ -56,6 +63,8 @@ const EventPage: React.FC<Props> = ({ token }) => {
 
   const updateEvent = async (calendarId: string, eventId: string) => {
     try {
+      const token = await getAuthToken(); // Assuming getAuthToken resolves with the token
+
       const response = await fetch(`/api/editEvent/${calendarId}/${eventId}`, {
         method: "PUT",
         headers: {
@@ -63,7 +72,7 @@ const EventPage: React.FC<Props> = ({ token }) => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          summary: eventName,
+          summary: eventName, // Ensure eventName and other variables are defined or passed as parameters
           description: description,
           location: location,
           start: {
@@ -76,23 +85,37 @@ const EventPage: React.FC<Props> = ({ token }) => {
         }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
-      console.log(data);
+      console.log("Event updated:", data);
     } catch (error) {
       console.error("Error updating event:", error);
     }
   };
 
   useEffect(() => {
-    if (calendarId && eventId && token) {
-      // Fetch the event data based on calendarId and eventId
-      fetch(`/api/calendar/${calendarId}/event/${eventId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-        .then((response) => response.json())
-        .then((data) => {
+    const fetchEventData = async () => {
+      if (calendarId && eventId) {
+        try {
+          const token = await getAuthToken(); // Assuming getAuthToken resolves with the token
+
+          const response = await fetch(
+            `/api/calendar/${calendarId}/event/${eventId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
           setEventData(data);
 
           // Update the recurrence-related state based on event data
@@ -130,12 +153,14 @@ const EventPage: React.FC<Props> = ({ token }) => {
               setEndDate(new Date(untilPart.split("=")[1]));
             }
           }
-        })
-        .catch((error) => {
+        } catch (error) {
           console.error("There was an error fetching the event data", error);
-        });
-    }
-  }, [calendarId, eventId, token]);
+        }
+      }
+    };
+
+    fetchEventData();
+  }, [calendarId, eventId, authResult, getAuthToken]);
 
   useEffect(() => {
     if (eventData) {
@@ -162,12 +187,12 @@ const EventPage: React.FC<Props> = ({ token }) => {
       const startFormatted = formatter.format(startDateTime);
       const endFormatted = formatter.format(endDateTime);
 
-      let startIsoLikeStringWithSeconds = startFormatted.replace(
+      const startIsoLikeStringWithSeconds = startFormatted.replace(
         /(\d{2})\/(\d{2})\/(\d{4}), (\d{2}:\d{2}:\d{2})/,
         "$3-$1-$2T$4"
       );
 
-      let endIsoLikeStringWithSeconds = endFormatted.replace(
+      const endIsoLikeStringWithSeconds = endFormatted.replace(
         /(\d{2})\/(\d{2})\/(\d{4}), (\d{2}:\d{2}:\d{2})/,
         "$3-$1-$2T$4"
       );
