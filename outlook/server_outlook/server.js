@@ -272,36 +272,41 @@ app.put('/api/editEvent/:calendarId/:eventId', (req, res) => {
     });
 });
 
-// Endpoint to delete a specific event from a calendar
-app.delete('/api/deleteEvent/:calendarId/:eventId', (req, res) => {
-    if (!req.session.tokens && !req.headers.authorization) {
-        return res.status(401).send("Unauthorized");
-    }
+app.delete('/api/deleteEvent/:calendarId/:eventId', async (req, res) => {
+    try {
+        // Retrieve the access token from the request header
+        const accessToken = req.headers.authorization.split(' ')[1];
 
-    const token = req.session.tokens ? req.session.tokens.access_token : req.headers.authorization.split(" ")[1];
-    oauth2Client.setCredentials({ access_token: token });
-
-    const { calendarId, eventId } = req.params;
-
-    calendar.events.delete({
-        calendarId: calendarId,
-        eventId: eventId,
-    }, (err, response) => {
-        // If the deletion is not authorized with the user's token, try the service account
-        if (err && err.code === 403) {
-            serviceAccountCalendar.deleteEvent(calendarId, eventId).then((responseData) => {
-                res.send({ message: 'Event deleted successfully with service account.' });
-            }).catch((serviceErr) => {
-                console.error('Error with service account deletion: ', serviceErr);
-                res.status(500).send(serviceErr);
-            });
-        } else if (err) {
-            console.error('The API returned an error: ' + err);
-            return res.status(500).send(err);
-        } else {
-            res.send({ message: 'Event deleted successfully.' });
+        if (!accessToken) {
+            return res.status(401).send('Access Token is required');
         }
-    });
+
+        // Retrieve calendarId and eventId from request parameters
+        const { calendarId, eventId } = req.params;
+
+        if (!calendarId || !eventId) {
+            return res.status(400).send('Calendar ID and Event ID are required');
+        }
+
+        // Endpoint to Microsoft Graph API to delete an event
+        const url = `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${eventId}`;
+
+        const response = await fetch(url, {
+            method: 'DELETE',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error deleting event: ${response.statusText}`);
+        }
+
+        res.send({ message: 'Event deleted successfully' });
+    } catch (error) {
+        console.error('Server error:', error);
+        res.status(500).send(error.message);
+    }
 });
 
 // Endpoint to fetch a specific event from a calendar

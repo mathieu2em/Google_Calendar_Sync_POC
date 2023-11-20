@@ -104,7 +104,7 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  const deleteEvent = (calendarId: string, eventId: string) => {
+  const deleteEvent = (calendarId: string, eventId: string, index: number) => {
     if (
       authResult &&
       window.confirm("Are you sure you want to delete this event?")
@@ -128,7 +128,12 @@ const CalendarPage: React.FC = () => {
                 (event) => event.id !== eventId
               ),
             }));
-            setUnfoldedIndices([]);
+            setUnfoldedIndices((prevIndices) => {
+              if (!prevIndices.includes(index)) {
+                return [...prevIndices, index];
+              }
+              return prevIndices;
+            });
           }
         })
         .catch((error) => {
@@ -137,7 +142,7 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  const fetchCalendarEvents = (calendarId: string) => {
+  const fetchCalendarEvents = (calendarId: string, index: number) => {
     setIsLoadingEvents(true); // Assuming you have a state to track loading of events
     getAuthToken()
       .then((token) => {
@@ -160,6 +165,12 @@ const CalendarPage: React.FC = () => {
               ...prevEvents,
               [calendarId]: data,
             }));
+            setUnfoldedIndices((prevIndices) => {
+              if (!prevIndices.includes(index)) {
+                return [...prevIndices, index];
+              }
+              return prevIndices;
+            });
           })
           .catch((error) => {
             console.error(
@@ -235,7 +246,9 @@ const CalendarPage: React.FC = () => {
                     Create New Event
                   </Link>
                   <br />
-                  <button onClick={() => fetchCalendarEvents(calendar.id)}>
+                  <button
+                    onClick={() => fetchCalendarEvents(calendar.id, index)}
+                  >
                     Fetch Events
                   </button>
                   {events[calendar.id] &&
@@ -247,7 +260,9 @@ const CalendarPage: React.FC = () => {
                         </Link>
                         {/* Add a button to delete the event */}
                         <button
-                          onClick={() => deleteEvent(calendar.id, event.id)}
+                          onClick={() =>
+                            deleteEvent(calendar.id, event.id, index)
+                          }
                         >
                           Delete
                         </button>
