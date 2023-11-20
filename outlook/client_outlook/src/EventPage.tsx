@@ -1,9 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
+// DISCLAIMER :
+
+// THIS CODE IS NOT PRODUCTION READY NOR REPRESENT GOOD CODING PRACTICES
+
+// THE PURPOSE OF THIS CODE IS TO DEMONSTRATE FEASABILITY OF SOME DESIRED FEATURES
+
+// DO NOT USE THIS CODE AS CODEBASE AND DO NOT SEE THIS CODE AS GOOD CODE
+
+// THIS CODE DOES NOT RESPECT GOOD PRACTICES AND IS CODED AS FAST AS POSSIBLE WITHOUT ANY CONCERN FOR ANYTHING OTHER THAN FUNCTIONALITY
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import "./EventPage.css";
 import { useAuth } from "./AuthProvider";
+import { OutlookCalendarEvent } from "./interfaces/OutlookCalendarEvent";
+import {
+  RecurrencePattern,
+  RecurrenceRange,
+} from "./interfaces/OutlookEventsRecurrence";
 
 const EventPage: React.FC = () => {
   const { calendarId, eventId } = useParams<{
@@ -12,27 +25,61 @@ const EventPage: React.FC = () => {
   }>();
 
   const [eventName, setEventName] = useState<string>("");
-  const [eventData, setEventData] = useState<any | null>(null);
+  const [eventData, setEventData] = useState<OutlookCalendarEvent | null>(null);
   const [description, setDescription] = useState<string>("");
-  const [location, setLocation] = useState<string>("");
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
-  const [recurrence, setRecurrence] = useState<string>("");
-  const [frequency, setFrequency] = useState<string | undefined>(undefined);
-  const [interval, setInterval] = useState<number>(1);
+  const [isRecurring, setIsRecurring] = useState<boolean>(false); // New state to track if the event is recurring
+  const [recurrencePattern, setRecurrencePattern] = useState<
+    RecurrencePattern | undefined
+  >();
+  const [recurrenceRange, setRecurrenceRange] = useState<
+    RecurrenceRange | undefined
+  >();
+  const [frequency, setFrequency] = useState<string>("DAILY");
   const [endType, setEndType] = useState<"never" | "count" | "date">("never");
   const [endAfter, setEndAfter] = useState<number>(1);
   const [endDate, setEndDate] = useState<Date | null>(null);
 
   const { getAuthToken, authResult } = useAuth();
 
-  /**
-   * To create en event in google calendar we need the calendarId
-   * @param calendarId The Id of the calendar in which to create an event.
-   */
   const createEvent = async (calendarId: string) => {
     try {
-      const token = await getAuthToken(); // Assuming getAuthToken is a method that resolves with a token
+      const token = await getAuthToken();
+
+      let recurrence;
+      console.log(recurrencePattern);
+      console.log(recurrenceRange);
+      console.log(frequency);
+      if (isRecurring) {
+        recurrence = {
+          pattern: { ...recurrencePattern, type: frequency!.toLowerCase() },
+          range: { ...recurrenceRange },
+        };
+        if (endType === "date" && endDate) {
+          recurrence.range.endDate = endDate.toISOString().split("T")[0];
+        } else if (endType === "count") {
+          recurrence.range.numberOfOccurrences = endAfter;
+        }
+      }
+
+      const eventData = {
+        subject: eventName,
+        body: {
+          contentType: "HTML",
+          content: description,
+        },
+        start: {
+          dateTime: startTime,
+          timeZone: "Eastern Standard Time", // Adjust time zone as needed
+        },
+        end: {
+          dateTime: endTime,
+          timeZone: "Eastern Standard Time", // Adjust time zone as needed
+        },
+        recurrence,
+        // ... other event properties if required
+      };
 
       const response = await fetch(`/api/createEvent/${calendarId}`, {
         method: "POST",
@@ -40,14 +87,7 @@ const EventPage: React.FC = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          summary: eventName, // eventName should be defined in your function's scope or passed as a parameter
-          description: description, // Similarly, description, location, etc., should be available in the scope
-          location: location,
-          start: { dateTime: startTime },
-          end: { dateTime: endTime },
-          recurrence: recurrence ? [recurrence] : undefined,
-        }),
+        body: JSON.stringify(eventData),
       });
 
       if (!response.ok) {
@@ -65,24 +105,44 @@ const EventPage: React.FC = () => {
     try {
       const token = await getAuthToken(); // Assuming getAuthToken resolves with the token
 
+      let recurrence;
+      if (isRecurring && recurrencePattern && recurrenceRange && frequency) {
+        recurrence = {
+          pattern: { ...recurrencePattern, type: frequency.toLowerCase() },
+          range: { ...recurrenceRange },
+        };
+        if (endType === "date" && endDate) {
+          recurrence.range.endDate = endDate.toISOString().split("T")[0];
+        } else if (endType === "count") {
+          recurrence.range.numberOfOccurrences = endAfter;
+        }
+      }
+
+      const eventData = {
+        subject: eventName,
+        body: {
+          contentType: "HTML",
+          content: description,
+        },
+        start: {
+          dateTime: new Date(startTime).toISOString(),
+          timeZone: "Eastern Standard Time", // Adjust time zone as needed
+        },
+        end: {
+          dateTime: new Date(endTime).toISOString(),
+          timeZone: "Eastern Standard Time", // Adjust time zone as needed
+        },
+        recurrence,
+        // ... other event properties
+      };
+
       const response = await fetch(`/api/editEvent/${calendarId}/${eventId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          summary: eventName, // Ensure eventName and other variables are defined or passed as parameters
-          description: description,
-          location: location,
-          start: {
-            dateTime: new Date(startTime).toISOString().substring(0, 18) + "Z",
-          },
-          end: {
-            dateTime: new Date(endTime).toISOString().substring(0, 18) + "Z",
-          },
-          recurrence: recurrence ? [recurrence] : undefined,
-        }),
+        body: JSON.stringify(eventData),
       });
 
       if (!response.ok) {
@@ -118,39 +178,21 @@ const EventPage: React.FC = () => {
           const data = await response.json();
           setEventData(data);
 
-          // Update the recurrence-related state based on event data
-          if (data.recurrence && data.recurrence.length > 0) {
-            const rrule = data.recurrence[0];
-            const rruleParts = rrule.split(";");
-            const frequencyPart = rruleParts.find((part: any) =>
-              part.startsWith("RRULE:FREQ=")
-            );
-            const intervalPart = rruleParts.find((part: any) =>
-              part.startsWith("INTERVAL=")
-            );
-            const countPart = rruleParts.find((part: any) =>
-              part.startsWith("COUNT=")
-            );
-            const untilPart = rruleParts.find((part: any) =>
-              part.startsWith("UNTIL=")
-            );
+          if (data.recurrence) {
+            setRecurrencePattern(data.recurrence.pattern);
+            setRecurrenceRange(data.recurrence.range);
+            const frequency = data.recurrence.pattern.type;
+            setFrequency(frequency.toUpperCase()); // Convert to uppercase to match your select options
 
-            if (frequencyPart) {
-              setFrequency(frequencyPart.split("=")[1]);
-            }
-
-            if (intervalPart) {
-              setInterval(Number(intervalPart.split("=")[1]));
-            }
-
-            if (countPart) {
-              setEndType("count");
-              setEndAfter(Number(countPart.split("=")[1]));
-            }
-
-            if (untilPart) {
+            // Example: Set end type based on recurrence range
+            if (data.recurrence.range.type === "endDate") {
               setEndType("date");
-              setEndDate(new Date(untilPart.split("=")[1]));
+              setEndDate(new Date(data.recurrence.range.endDate));
+            } else if (data.recurrence.range.numberOfOccurrences) {
+              setEndType("count");
+              setEndAfter(data.recurrence.range.numberOfOccurrences);
+            } else {
+              setEndType("never");
             }
           }
         } catch (error) {
@@ -164,62 +206,57 @@ const EventPage: React.FC = () => {
 
   useEffect(() => {
     if (eventData) {
-      console.log(eventData);
+      setEventName(eventData.subject);
+      setDescription(eventData.body.content || "");
+
+      const convertUTCToEST = (utcDateTime: string) => {
+        const utcDate = new Date(utcDateTime);
+        // EST is UTC-5, but consider daylight saving time
+        const estOffset = 5 * 60; // EST offset in minutes
+        const estDate = new Date(utcDate.getTime() - estOffset * 60000);
+
+        // Extracting the date and time in 'YYYY-MM-DD' and 'HH:mm' format
+        const dateString = estDate.toLocaleDateString("en-CA"); // 'en-CA' uses YYYY-MM-DD format
+        const timeString = estDate.toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+
+        // Combine date and time
+        return `${dateString}T${timeString}`;
+      };
+
       console.log(eventData.start.dateTime);
-      setEventName(eventData.summary);
-      setDescription(eventData.description || "");
-      setLocation(eventData.location || "");
+      console.log(convertUTCToEST(eventData.start.dateTime));
 
-      const startDateTime = new Date(eventData.start.dateTime);
-      const endDateTime = new Date(eventData.end.dateTime);
+      setStartTime(convertUTCToEST(eventData.start.dateTime));
+      setEndTime(convertUTCToEST(eventData.end.dateTime));
 
-      const formatter = new Intl.DateTimeFormat("en-US", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        timeZone: eventData.start.timeZone,
-        hour12: false, // Use 24-hour format
-      });
-      // Extract formatted strings
-      const startFormatted = formatter.format(startDateTime);
-      const endFormatted = formatter.format(endDateTime);
-
-      const startIsoLikeStringWithSeconds = startFormatted.replace(
-        /(\d{2})\/(\d{2})\/(\d{4}), (\d{2}:\d{2}:\d{2})/,
-        "$3-$1-$2T$4"
-      );
-
-      const endIsoLikeStringWithSeconds = endFormatted.replace(
-        /(\d{2})\/(\d{2})\/(\d{4}), (\d{2}:\d{2}:\d{2})/,
-        "$3-$1-$2T$4"
-      );
-
-      setStartTime(startIsoLikeStringWithSeconds);
-      setEndTime(endIsoLikeStringWithSeconds);
-      setRecurrence(eventData.recurrence ? eventData.recurrence[0] : ""); // Assuming a single recurrence rule
+      // Handle Recurrence
+      if (eventData.recurrence) {
+        setIsRecurring(true); // Set the recurring flag if the event has recurrence data
+        const { pattern, range } = eventData.recurrence;
+        setRecurrencePattern(pattern);
+        setRecurrenceRange(range);
+        setFrequency(pattern.type.toUpperCase()); // Adjust this line as necessary
+      } else {
+        setIsRecurring(false);
+      }
     }
   }, [eventData]);
 
-  const handleRRULESubmit = () => {
-    let rrule = `RRULE:FREQ=${frequency}`;
-
-    if (interval > 1) {
-      rrule += `;INTERVAL=${interval}`;
-    }
-
-    if (endType === "count") {
-      rrule += `;COUNT=${endAfter}`;
-    } else if (endType === "date" && endDate) {
-      rrule += `;UNTIL=${endDate.toISOString()}`;
-    }
-
-    setRecurrence(rrule); // Set the recurrence based on the user's selections
-  };
-
   const handleSubmit = () => {
+    // Convert the startTime and endTime to Date objects for comparison
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+
+    // Check if the end time is before the start time
+    if (end <= start) {
+      alert("End time must be after the start time.");
+      return; // Prevent form submission
+    }
+
     if (eventId) {
       // Update the event. If it's recurring, this will affect all upcoming instances.
       updateEvent(calendarId!, eventId); // You'll have to define this function.
@@ -253,22 +290,11 @@ const EventPage: React.FC = () => {
       </label>
 
       <label>
-        Location:
-        <input
-          type="text"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="Location"
-        />
-      </label>
-
-      <label>
         Start Time:
         <input
           type="datetime-local"
           value={startTime}
           onChange={(e) => setStartTime(e.target.value)}
-          step="1"
           placeholder="Start Time"
         />
       </label>
@@ -279,63 +305,97 @@ const EventPage: React.FC = () => {
           type="datetime-local"
           value={endTime}
           onChange={(e) => setEndTime(e.target.value)}
-          step="1"
           placeholder="End Time"
         />
       </label>
 
-      <div className="recurrence-container">
-        <label>
-          Frequency:
-          <select
-            value={frequency}
-            onChange={(e) => setFrequency(e.target.value)}
-          >
-            <option value="DAILY">Daily</option>
-            <option value="WEEKLY">Weekly</option>
-            <option value="MONTHLY">Monthly</option>
-            <option value="YEARLY">Yearly</option>
-          </select>
-        </label>
+      <label>
+        Set Recurrence:
+        <input
+          type="checkbox"
+          checked={isRecurring}
+          onChange={() => setIsRecurring(!isRecurring)}
+        />
+      </label>
 
-        <label>
-          Interval:
-          <input
-            type="number"
-            value={interval}
-            onChange={(e) => setInterval(Number(e.target.value))}
-          />
-        </label>
+      {isRecurring && (
+        <div className="recurrence-settings">
+          <label>
+            Frequency:
+            <select
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value)}
+            >
+              <option value="DAILY">Daily</option>
+              <option value="WEEKLY">Weekly</option>
+              <option value="MONTHLY">Monthly</option>
+              <option value="YEARLY">Yearly</option>
+            </select>
+          </label>
 
-        <label>
-          End:
-          <select
-            value={endType}
-            onChange={(e) => setEndType(e.target.value as any)}
-          >
-            <option value="never">Never</option>
-            <option value="count">After X occurrences</option>
-            <option value="date">On a specific date</option>
-          </select>
-        </label>
+          <label>
+            Interval:
+            <select
+              value={recurrencePattern?.interval || 1}
+              onChange={(e) => {
+                const newInterval = parseInt(e.target.value, 10);
+                setRecurrencePattern((prevPattern) => ({
+                  ...prevPattern, // spread the existing pattern
+                  type: prevPattern?.type || "daily", // default type if not set
+                  interval: newInterval,
+                  // other properties remain unchanged
+                }));
+              }}
+            >
+              {[...Array(30)].map((_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {i + 1}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        {endType === "count" && (
-          <input
-            type="number"
-            value={endAfter}
-            onChange={(e) => setEndAfter(Number(e.target.value))}
-          />
-        )}
+          <label>
+            End Type:
+            <select
+              value={endType}
+              onChange={(e) => setEndType(e.target.value as any)}
+            >
+              <option value="never">Never</option>
+              <option value="count">After X occurrences</option>
+              <option value="date">On a specific date</option>
+            </select>
+          </label>
 
-        {endType === "date" && (
-          <input
-            type="date"
-            value={endDate?.toISOString().substring(0, 10)}
-            onChange={(e) => setEndDate(new Date(e.target.value))}
-          />
-        )}
+          {endType === "count" && (
+            <label>
+              Occurrences:
+              <input
+                type="number"
+                min="1"
+                value={endAfter}
+                onChange={(e) => setEndAfter(parseInt(e.target.value, 10))}
+              />
+            </label>
+          )}
 
-        <button onClick={handleRRULESubmit}>Set Recurrence</button>
+          {endType === "date" && (
+            <label>
+              End Date:
+              <input
+                type="date"
+                value={endDate ? endDate.toISOString().substring(0, 10) : ""}
+                onChange={(e) => setEndDate(new Date(e.target.value))}
+              />
+            </label>
+          )}
+        </div>
+      )}
+
+      <div>
+        <button onClick={handleSubmit}>
+          {eventId ? "Update Event" : "Create Event"}
+        </button>
       </div>
 
       {eventData && eventData.recurrence && (
@@ -343,9 +403,6 @@ const EventPage: React.FC = () => {
           Changes to this event will apply to all future instances.
         </p>
       )}
-      <button onClick={handleSubmit}>
-        {eventId ? "Update Event" : "Create Event"}
-      </button>
     </div>
   );
 };
