@@ -196,7 +196,7 @@ const CalendarPage: React.FC = () => {
   };
 
   return (
-    <div>
+    <div className="bg">
       {/* Create a New Calendar form */}
       <h2>Create a New Calendar</h2>
       <div>
@@ -239,8 +239,15 @@ const CalendarPage: React.FC = () => {
             </div>
             {unfoldedIndices.includes(index) && (
               <div>
-                <pre>{JSON.stringify(calendar, null, 2)}</pre>
-                <div>
+                {/*!-- Display the calendar object with id cutted at 50 char max */}
+                <pre>
+                  {JSON.stringify(
+                    { ...calendar, id: calendar.id?.slice(0, 50) + "..." },
+                    null,
+                    2
+                  )}
+                </pre>
+                <div id="box">
                   {/* Redirect to the EventPage for creating a new event */}
                   <Link to={`${calendar.id}/event/create`}>
                     Create New Event
@@ -251,11 +258,15 @@ const CalendarPage: React.FC = () => {
                   >
                     Fetch Events
                   </button>
+                  <br />
                   {events[calendar.id] &&
                     events[calendar.id].map((event) => (
-                      <div key={event.id}>
+                      <div key={event.id} id="event">
                         {event.subject}
-                        <Link to={`${calendar.id}/event/${event.id}/edit`}>
+                        <Link
+                          to={`${calendar.id}/event/${event.id}/edit`}
+                          id="event-elem1"
+                        >
                           Edit
                         </Link>
                         {/* Add a button to delete the event */}
@@ -263,6 +274,7 @@ const CalendarPage: React.FC = () => {
                           onClick={() =>
                             deleteEvent(calendar.id, event.id, index)
                           }
+                          id="event-elem2"
                         >
                           Delete
                         </button>

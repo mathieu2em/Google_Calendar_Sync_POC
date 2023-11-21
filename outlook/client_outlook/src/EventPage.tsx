@@ -96,8 +96,10 @@ const EventPage: React.FC = () => {
 
       const data = await response.json();
       console.log("Event created:", data);
+      return data;
     } catch (error) {
       console.error("Error creating event:", error);
+      return error;
     }
   };
 
@@ -151,8 +153,10 @@ const EventPage: React.FC = () => {
 
       const data = await response.json();
       console.log("Event updated:", data);
+      return data;
     } catch (error) {
       console.error("Error updating event:", error);
+      return error;
     }
   };
 
@@ -243,6 +247,9 @@ const EventPage: React.FC = () => {
       } else {
         setIsRecurring(false);
       }
+    } else {
+      setStartTime(new Date(Date.now()).toISOString().split(".")[0]);
+      setEndTime(new Date(Date.now() + 3600000).toISOString().split(".")[0]);
     }
   }, [eventData]);
 
@@ -259,10 +266,16 @@ const EventPage: React.FC = () => {
 
     if (eventId) {
       // Update the event. If it's recurring, this will affect all upcoming instances.
-      updateEvent(calendarId!, eventId); // You'll have to define this function.
+      updateEvent(calendarId!, eventId).then(() => {
+        // Redirect to the calendar page after updating the event
+        window.location.href = "/calendar";
+      }); // You'll have to define this function.
     } else {
       // Call the create event API
-      createEvent(calendarId!); // You'll have to define this function.
+      createEvent(calendarId!).then(() => {
+        // Redirect to the calendar page after creating the event
+        window.location.href = "/calendar";
+      }); // You'll have to define this function.
     }
   };
 
@@ -314,7 +327,19 @@ const EventPage: React.FC = () => {
         <input
           type="checkbox"
           checked={isRecurring}
-          onChange={() => setIsRecurring(!isRecurring)}
+          onChange={() => {
+            setIsRecurring(!isRecurring);
+            if (!isRecurring) {
+              console.log("resetting recurrence");
+              setRecurrencePattern({ type: "daily", interval: 1 });
+              setRecurrenceRange({
+                type: "noEnd",
+                startDate: new Date().toISOString().split("T")[0],
+              });
+              setFrequency("DAILY");
+              setEndType("never");
+            }
+          }}
         />
       </label>
 
@@ -339,6 +364,7 @@ const EventPage: React.FC = () => {
               value={recurrencePattern?.interval || 1}
               onChange={(e) => {
                 const newInterval = parseInt(e.target.value, 10);
+                console.log("new interval : " + newInterval);
                 setRecurrencePattern((prevPattern) => ({
                   ...prevPattern, // spread the existing pattern
                   type: prevPattern?.type || "daily", // default type if not set
