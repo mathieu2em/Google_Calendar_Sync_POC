@@ -55,6 +55,69 @@ const CalendarPage: React.FC = () => {
     return `${noun} ${adjective} ${theme}`;
   };
 
+  const getNextFiveDays = () => {
+    let dates = [];
+    for (let i = 1; i <= 5; i++) {
+      let date = new Date();
+      date.setDate(date.getDate() + i);
+      dates.push(date.toISOString().split("T")[0]); // Keeping only the date part
+    }
+    return dates;
+  };
+
+  const generateFiveFunnyEvents = (calendarId: string) => {
+    if (!authResult) {
+      return;
+    }
+
+    const dates = getNextFiveDays();
+    const batchRequests = dates.map((date, index) => {
+      const funnyName = generateFunnyName(); // Generate a unique funny name
+      return {
+        id: `createEvent${index}`,
+        method: "POST",
+        url: `/me/calendars/${calendarId}/events`,
+        body: {
+          subject: funnyName,
+          start: {
+            dateTime: date + "T09:00:00", // Example start time
+            timeZone: "UTC",
+          },
+          end: {
+            dateTime: date + "T10:00:00", // Example end time
+            timeZone: "UTC",
+          },
+        },
+        headers: {
+          "Content-Type": "application/json",
+        },
+      };
+    });
+
+    fetch("/api/batchEventOperations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authResult.accessToken}`,
+      },
+      body: JSON.stringify(batchRequests),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((response) => {
+        // Here you can handle the response. For example, updating the UI
+        // to indicate that the events have been successfully created.
+        console.log("Batch create response:", response);
+      })
+      .catch((error) => {
+        console.error("Error in batch event creation:", error);
+      });
+  };
+
   const batchDeleteEvents = (calendarId: string) => {
     if (
       !authResult ||
@@ -368,6 +431,10 @@ const CalendarPage: React.FC = () => {
                   <br />
                   <button onClick={() => batchUpdateEvents(calendar.id)}>
                     Batch Update Event Names
+                  </button>
+                  <br />
+                  <button onClick={() => generateFiveFunnyEvents(calendar.id)}>
+                    Batch create cool Events
                   </button>
                   <br />
 
