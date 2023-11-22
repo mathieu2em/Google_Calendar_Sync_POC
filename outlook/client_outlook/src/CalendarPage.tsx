@@ -30,6 +30,120 @@ const CalendarPage: React.FC = () => {
     }
   }, [authResult]); // Fetch calendars when authResult changes
 
+  const generateFunnyName = () => {
+    const adjectives = ["Bugué", "Crypté", "Viral", "Pixelisé", "Connecté"];
+    const nouns = [
+      "Hackathon",
+      "Démo",
+      "Webinaire",
+      "Code-Party",
+      "Brainstorm",
+    ];
+    const themes = [
+      "dans le Cloud",
+      "avec des Robots",
+      "en Réalité Virtuelle",
+      "chez les Geeks",
+      "sur GitHub",
+    ];
+
+    // Randomly pick one word from each list
+    const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const theme = themes[Math.floor(Math.random() * themes.length)];
+
+    return `${noun} ${adjective} ${theme}`;
+  };
+
+  const batchDeleteEvents = (calendarId: string) => {
+    if (
+      !authResult ||
+      !window.confirm("Are you sure you want to batch delete all events?")
+    ) {
+      return;
+    }
+
+    const batchRequests = events[calendarId].map((event) => ({
+      id: `deleteEvent${event.id}`,
+      method: "DELETE",
+      url: `/me/calendars/${calendarId}/events/${event.id}`,
+    }));
+
+    fetch("/api/batchEventOperations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authResult.accessToken}`,
+      },
+      body: JSON.stringify(batchRequests),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(() => {
+        // Remove deleted events from state
+        setEvents((prevEvents) => ({
+          ...prevEvents,
+          [calendarId]: [],
+        }));
+      })
+      .catch((error) => {
+        console.error("Error in batch delete:", error);
+      });
+  };
+
+  const batchUpdateEvents = (calendarId: string) => {
+    if (!authResult) {
+      return;
+    }
+
+    const newNames: string[] = []; // Array to store new names for each event
+    const batchRequests = events[calendarId].map((event) => {
+      const funnyName = generateFunnyName(); // Replace with your logic for generating funny names
+      newNames.push(funnyName); // Store the new name
+      return {
+        id: `updateEvent${event.id}`,
+        method: "PATCH",
+        url: `/me/calendars/${calendarId}/events/${event.id}`,
+        body: { subject: funnyName },
+        headers: {
+          "Content-Type": "application/json",
+        },
+      };
+    });
+
+    fetch("/api/batchEventOperations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authResult.accessToken}`,
+      },
+      body: JSON.stringify(batchRequests),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(() => {
+        // Update events in state with the new name
+        setEvents((prevEvents) => ({
+          ...prevEvents,
+          [calendarId]: prevEvents[calendarId].map((event, index) => ({
+            ...event,
+            subject: newNames[index], // Use the stored new name
+          })),
+        }));
+      })
+      .catch((error) => {
+        console.error("Error in batch update:", error);
+      });
+  };
+
   const fetchAvailableCalendars = () => {
     getAuthToken()
       .then((token) => {
@@ -248,9 +362,18 @@ const CalendarPage: React.FC = () => {
                   )}
                 </pre>
                 <div id="box">
+                  <button onClick={() => batchDeleteEvents(calendar.id)}>
+                    Batch Delete Events
+                  </button>
+                  <br />
+                  <button onClick={() => batchUpdateEvents(calendar.id)}>
+                    Batch Update Event Names
+                  </button>
+                  <br />
+
                   {/* Redirect to the EventPage for creating a new event */}
                   <Link to={`${calendar.id}/event/create`}>
-                    Create New Event
+                    <button>Create New Event</button>
                   </Link>
                   <br />
                   <button

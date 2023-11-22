@@ -24,6 +24,44 @@ app.use(session({
     saveUninitialized: true,
 }));
 
+async function batchCreateUpdateDeleteEvents(accessToken, batchRequests) {
+    const url = 'https://graph.microsoft.com/v1.0/$batch';
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ requests: batchRequests }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Batch operation failed: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+// New endpoint to handle batch event operations
+app.post('/api/batchEventOperations', async (req, res) => {
+    try {
+        const accessToken = req.headers.authorization.split(' ')[1];
+
+        if (!accessToken) {
+            return res.status(401).send('Access Token is required');
+        }
+
+        const batchRequests = req.body; // Array of batch requests
+        console.log(batchRequests);
+        const result = await batchCreateUpdateDeleteEvents(accessToken, batchRequests);
+        res.json(result);
+    } catch (error) {
+        console.error('Server error:', error);
+        res.status(500).send(error.message);
+    }
+});
+
 app.get('/api/calendars', async (req, res) => {
     try {
         // Retrieve the access token from the request header
@@ -221,7 +259,7 @@ app.put('/api/editEvent/:calendarId/:eventId', async (req, res) => {
 
         // Endpoint to Microsoft Graph API to update an event
         const url = `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${eventId}`;
-
+        console.log(url);
         const response = await fetch(url, {
             method: 'PATCH',
             headers: {

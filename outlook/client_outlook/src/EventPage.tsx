@@ -9,7 +9,7 @@
 
 // THIS CODE DOES NOT RESPECT GOOD PRACTICES AND IS CODED AS FAST AS POSSIBLE WITHOUT ANY CONCERN FOR ANYTHING OTHER THAN FUNCTIONALITY
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import "./EventPage.css";
 import { useAuth } from "./AuthProvider";
 import { OutlookCalendarEvent } from "./interfaces/OutlookCalendarEvent";
@@ -42,6 +42,9 @@ const EventPage: React.FC = () => {
   const [endDate, setEndDate] = useState<Date | null>(null);
 
   const { getAuthToken, authResult } = useAuth();
+  const navigate = useNavigate(); // Create navigate function
+
+  const goBack = () => navigate(-1); // Function to navigate back
 
   const createEvent = async (calendarId: string) => {
     try {
@@ -281,6 +284,13 @@ const EventPage: React.FC = () => {
 
   return (
     <div className="container">
+      {/* Back button */}
+      <button
+        onClick={goBack}
+        style={{ padding: "5px 10px", margin: "5px", width: "80px" }}
+      >
+        Back
+      </button>
       <h2>{eventId ? "Edit Event | " + eventName : "Create New Event"}</h2>
 
       <label>
